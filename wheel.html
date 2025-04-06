@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Spin the Wheel!</title>
+  <style>
+    body {
+      font-family: 'Poppins', Arial, sans-serif;
+      /* Updated to use the new image */
+      background: url('new images/pizza with wings.jpg') center/cover no-repeat fixed;
+      background-color: #FFF9E5; /* Light pastel yellow as fallback */
+      text-align: center;
+      padding: 0;
+      margin: 0;
+      position: relative;
+      overflow-x: hidden;
+      color: #333;
+      line-height: 1.6;
+    }
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5); /* Slightly darker overlay for better contrast with the new image */
+    }
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      background: transparent;
+      padding: 30px;
+      position: relative;
+      z-index: 1;
+    }
+    .wheel-container {
+      position: relative;
+      width: 450px;
+      height: 450px;
+      margin: 40px auto;
+    }
+    #wheel {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transition: transform 4s ease-out;
+    }
+    .pointer {
+      width: 0;
+      height: 0;
+      border-left: 30px solid transparent;
+      border-right: 30px solid transparent;
+      border-top: 60px solid #E63946;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1;
+    }
+    button {
+      background: #E63946;
+      color: white;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.3em;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #F4A261;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    h1 {
+      color: #FFFFFF; /* Changed to white for better contrast with the new background */
+      font-weight: bold;
+      font-size: 2.8em;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    #user-name {
+      color: #FFD60A; /* Bright yellow for better visibility */
+    }
+    @media (max-width: 600px) {
+      .wheel-container { width: 300px; height: 300px; }
+      h1 { font-size: 2em; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🍕 Let’s Spin, <span id="user-name">Guest</span>!</h1>
+    <div class="wheel-container">
+      <div class="pointer"></div>
+      <canvas id="wheel" width="450" height="450"></canvas>
+    </div>
+    <button id="spin-btn">Spin!</button>
+  </div>
+
+  <script>
+    // Defer wheel rendering until the DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const name = params.get('name') || 'Guest';
+      document.getElementById('user-name').textContent = name;
+
+      const prizes = ['Free Dip', 'Free Pop', 'Free Chipbag', '10% Off', 'Free Soda'];
+      let currentAngle = 0;
+      let spinning = false;
+
+      const canvas = document.getElementById('wheel');
+      const ctx = canvas.getContext('2d');
+      const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C', '#9BC53D']; // Bright colors
+      const radius = 225;
+      const centerX = 225;
+      const centerY = 225;
+      const arc = (2 * Math.PI) / prizes.length;
+
+      function drawWheel() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < prizes.length; i++) {
+          const startAngle = i * arc - Math.PI / 2;
+          const endAngle = (i + 1) * arc - Math.PI / 2;
+
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+          ctx.closePath();
+          ctx.fillStyle = colors[i];
+          ctx.fill();
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+
+          ctx.save();
+          ctx.translate(centerX, centerY);
+          ctx.rotate(startAngle + arc / 2);
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#333'; // Darker text for contrast
+          ctx.font = 'bold 18px Poppins';
+          ctx.fillText(prizes[i], 120, 0);
+          ctx.restore();
+        }
+      }
+
+      drawWheel();
+
+      function spinWheel() {
+        if (spinning) return;
+        spinning = true;
+        document.getElementById('spin-btn').disabled = true;
+
+        let spinTime = 4000;
+        let spinAngleStart = Math.random() * 360 + 720;
+        currentAngle += spinAngleStart;
+
+        canvas.style.transform = `rotate(${currentAngle}deg)`;
+
+        setTimeout(() => {
+          determinePrize();
+        }, spinTime);
+      }
+
+      function determinePrize() {
+        const arcDeg = 360 / prizes.length;
+        let index = Math.floor(((currentAngle % 360) / arcDeg) % prizes.length);
+        let prize = prizes[prizes.length - index - 1];
+        window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+      }
+
+      document.getElementById('spin-btn').addEventListener('click', spinWheel);
+    });
+  </script>
+</body>
+</html>
