@@ -6,7 +6,7 @@ const fs = require('fs').promises;
 const { google } = require('googleapis');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000; // Explicitly set for Render
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1Vila0sI9fAaAxp17_IZmbbkcegOPGJLD';
 
@@ -35,7 +35,7 @@ async function initializeExcel() {
   sheet.addRow(['Name', 'Email', 'Phone', 'Date']);
   await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
   console.log('Initialized Excel file:', LOCAL_EXCEL_FILE);
-  return workbook;
+  return { workbook, rowData: [] };
 }
 
 async function loadLocalExcel() {
@@ -57,7 +57,8 @@ async function loadLocalExcel() {
     const expectedColumns = ['Name', 'Email', 'Phone', 'Date'];
     const actualColumns = sheet.getRow(1).values?.slice(1) || [];
     if (!expectedColumns.every((col, idx) => actualColumns[idx] === col)) {
-      throw new Error('Invalid column structure.');
+      console.log('Invalid column structure, reinitializing file.');
+      return await initializeExcel();
     }
 
     let rowData = [];
@@ -68,17 +69,17 @@ async function loadLocalExcel() {
         const phone = String(row.getCell(3)?.value || '').trim();
         const date = String(row.getCell(4)?.value || '').trim();
         if (!name || !email || !phone) {
-          throw new Error(`Invalid data in row ${rowNumber}`);
+          console.log(`Invalid data in row ${rowNumber}, skipping:`, { name, email, phone, date });
+        } else {
+          rowData.push({ name, email, phone, date });
         }
-        rowData.push({ name, email, phone, date });
       }
     });
 
     return { workbook, rowData };
   } catch (error) {
     console.error('Error loading Excel file:', error.message);
-    workbook = await initializeExcel();
-    return { workbook, rowData: [] };
+    return await initializeExcel();
   }
 }
 
