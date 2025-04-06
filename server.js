@@ -10,7 +10,6 @@ const PORT = process.env.PORT || 3000;
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1Vila0sI9fAaAxp17_IZmbbkcegOPGJLD';
 
-// Flag to prevent concurrent file access
 let isFileWriting = false;
 
 const auth = new google.auth.GoogleAuth({
@@ -32,7 +31,7 @@ async function initializeExcel() {
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
   ];
-  sheet.addRow(['Name', 'Email', 'Phone']); // Explicitly add headers
+  sheet.addRow(['Name', 'Email', 'Phone']);
   return workbook;
 }
 
@@ -76,9 +75,9 @@ async function loadLocalExcel() {
     let rowData = [];
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber > 1) {
-        const name = row.getCell(1)?.value?.toString().trim();  // Column A
-        const email = row.getCell(2)?.value?.toString().trim(); // Column B
-        const phone = row.getCell(3)?.value?.toString().trim(); // Column C
+        const name = row.getCell(1)?.value?.toString().trim();
+        const email = row.getCell(2)?.value?.toString().trim();
+        const phone = row.getCell(3)?.value?.toString().trim();
         if (!name || !email || !phone) {
           console.log(`Invalid data in row ${rowNumber}:`, { name, email, phone });
           throw new Error(`Invalid data in row ${rowNumber}`);
@@ -189,7 +188,6 @@ async function initializeFromGoogleDrive() {
   }
 }
 
-// Check for duplicate email or phone
 async function checkDuplicates(email, phone) {
   const { workbook, rowData } = await loadLocalExcel();
   let duplicateField = null;
@@ -215,7 +213,6 @@ async function checkDuplicates(email, phone) {
   return { duplicateField, workbook };
 }
 
-// Utility function to delay execution
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 app.post('/submit', async (req, res) => {
@@ -249,6 +246,7 @@ app.post('/submit', async (req, res) => {
     let sheet = workbook.getWorksheet('Customers');
     const newRow = sheet.addRow({ name, email, phone });
     console.log('Added new row:', { name, email, phone, rowNumber: newRow.number });
+    console.log('New row values:', newRow.values);
 
     isFileWriting = true;
     const tempFile = LOCAL_EXCEL_FILE + '.tmp';
@@ -257,15 +255,16 @@ app.post('/submit', async (req, res) => {
     await fs.rename(tempFile, LOCAL_EXCEL_FILE);
     console.log('Renamed temporary file to:', LOCAL_EXCEL_FILE);
 
-    // Validate by checking the exact row added
     const validationWorkbook = new ExcelJS.Workbook();
     await validationWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
     const validationSheet = validationWorkbook.getWorksheet('Customers');
-    const writtenRow = validationSheet.getRow(newRow.number); // Use the row number we added
+    console.log('Total rows in file:', validationSheet.rowCount);
+    const writtenRow = validationSheet.getRow(newRow.number);
     if (writtenRow) {
-      const lastName = writtenRow.getCell(1)?.value?.toString().trim();  // Column A
-      const lastEmail = writtenRow.getCell(2)?.value?.toString().trim(); // Column B
-      const lastPhone = writtenRow.getCell(3)?.value?.toString().trim(); // Column C
+      console.log('Validated row number:', writtenRow.number);
+      const lastName = writtenRow.getCell(1)?.value?.toString().trim();
+      const lastEmail = writtenRow.getCell(2)?.value?.toString().trim();
+      const lastPhone = writtenRow.getCell(3)?.value?.toString().trim();
       console.log('Validated written row:', { lastName, lastEmail, lastPhone });
       if (lastName !== name || lastEmail !== email || lastPhone !== phone) {
         console.log('Mismatch detected - Submitted:', { name, email, phone });
