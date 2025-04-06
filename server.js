@@ -32,6 +32,7 @@ async function initializeExcel() {
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
   ];
+  sheet.addRow(['Name', 'Email', 'Phone']); // Explicitly add headers
   return workbook;
 }
 
@@ -75,9 +76,9 @@ async function loadLocalExcel() {
     let rowData = [];
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber > 1) {
-        const name = row.getCell('name')?.value?.toString().trim();
-        const email = row.getCell('email')?.value?.toString().trim();
-        const phone = row.getCell('phone')?.value?.toString().trim();
+        const name = row.getCell(1)?.value?.toString().trim();  // Column A
+        const email = row.getCell(2)?.value?.toString().trim(); // Column B
+        const phone = row.getCell(3)?.value?.toString().trim(); // Column C
         if (!name || !email || !phone) {
           console.log(`Invalid data in row ${rowNumber}:`, { name, email, phone });
           throw new Error(`Invalid data in row ${rowNumber}`);
@@ -221,7 +222,6 @@ app.post('/submit', async (req, res) => {
   let responseSent = false;
   try {
     const { name, email, phone } = req.body;
-
     console.log('Received submission:', { name, email, phone });
 
     if (!name || !email || !phone) {
@@ -236,8 +236,7 @@ app.post('/submit', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid phone number (10 digits required)' });
     }
 
-    // Check for duplicates
-    let { duplicateField, workbook } = await checkDuplicates(email, phone); // Changed to let
+    let { duplicateField, workbook } = await checkDuplicates(email, phone);
     if (duplicateField) {
       console.log(`Duplicate ${duplicateField} detected:`, duplicateField === 'email' ? email : phone);
       responseSent = true;
@@ -247,94 +246,37 @@ app.post('/submit', async (req, res) => {
       });
     }
 
-    // If no duplicates, save the data
     let sheet = workbook.getWorksheet('Customers');
     const newRow = sheet.addRow({ name, email, phone });
     console.log('Added new row:', { name, email, phone, rowNumber: newRow.number });
 
-    // Set the file writing flag
     isFileWriting = true;
+    const tempFile = LOCAL_EXCEL_FILE + '.tmp';
+    await workbook.xlsx.writeFile(tempFile);
+    console.log('Data written to temporary file:', tempFile);
+    await fs.rename(tempFile, LOCAL_EXCEL_FILE);
+    console.log('Renamed temporary file to:', LOCAL_EXCEL_FILE);
 
-    // Save the updated Excel file with retry logic
-    let writeSuccess = false;
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        // Write to a temporary file first
-        const tempFile = LOCAL_EXCEL_FILE + '.tmp';
-        await workbook.xlsx.writeFile(tempFile);
-        console.log('Data written to temporary file:', tempFile);
-
-        // Rename the temporary file to the final file
-        await fs.rename(tempFile, LOCAL_EXCEL_FILE);
-        console.log('Renamed temporary file to:', LOCAL_EXCEL_FILE);
-
-        // Check file permissions
-        await fs.access(LOCAL_EXCEL_FILE, fs.constants.W_OK);
-        console.log('File is writable:', LOCAL_EXCEL_FILE);
-
-        // Validate the file by reading it back
-        const validationWorkbook = new ExcelJS.Workbook();
-        await validationWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-        const validationSheet = validationWorkbook.getWorksheet('Customers');
-        const lastRow = validationSheet.lastRow;
-        if (lastRow) {
-          const lastName = lastRow.getCell('name')?.value?.toString().trim();
-          const lastEmail = lastRow.getCell('email')?.value?.toString().trim();
-          const lastPhone = lastRow.getCell('phone')?.value?.toString().trim();
-          console.log('Last row in file after write:', { name: lastName, email: lastEmail, phone: lastPhone });
-          if (lastName !== name || lastEmail !== email || lastPhone !== phone) {
-            throw new Error('Last row does not match the submitted data.');
-          }
-          console.log('File validated successfully after write with matching data.');
-        } else {
-          throw new Error('No last row found in file after write.');
-        }
-
-        writeSuccess = true;
-        break;
-      } catch (writeError) {
-        console.error(`Write attempt ${attempt} failed:`, writeError.message);
-        if ((writeError.message.includes('Out of bounds') || writeError.message.includes('Last row does not match')) && attempt < 2) {
-          console.log('Recreating Excel file due to error during write...');
-          const existingData = [];
-          sheet.eachRow((row, rowNumber) => {
-            if (rowNumber > 1) {
-              existingData.push({
-                name: row.getCell('name')?.value?.toString().trim(),
-                email: row.getCell('email')?.value?.toString().trim(),
-                phone: row.getCell('phone')?.value?.toString().trim(),
-              });
-            }
-          });
-          workbook = await initializeExcel(); // Now allowed because workbook is declared with let
-          sheet = workbook.getWorksheet('Customers');
-          existingData.push({ name, email, phone });
-          for (const entry of existingData) {
-            sheet.addRow(entry);
-          }
-          console.log('Recreated file with existing data and new entry:', existingData);
-        } else {
-          throw writeError;
-        }
+    // Validate using column indices
+    const validationWorkbook = new ExcelJS.Workbook();
+    await validationWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+    const validationSheet = validationWorkbook.getWorksheet('Customers');
+    const lastRow = validationSheet.lastRow;
+    if (lastRow) {
+      const lastName = lastRow.getCell(1)?.value?.toString().trim();  // Column A
+      const lastEmail = lastRow.getCell(2)?.value?.toString().trim(); // Column B
+      const lastPhone = lastRow.getCell(3)?.value?.toString().trim(); // Column C
+      console.log('Validated last row:', { lastName, lastEmail, lastPhone });
+      if (lastName !== name || lastEmail !== email || lastPhone !== phone) {
+        throw new Error('Last row does not match the submitted data.');
       }
+    } else {
+      throw new Error('No last row found after write.');
     }
 
-    if (!writeSuccess) {
-      throw new Error('Failed to write Excel file after multiple attempts.');
-    }
-
-    // Increase delay to ensure file write is complete
     await delay(3000);
+    await uploadToGoogleDrive();
 
-    // Force immediate Google Drive sync
-    try {
-      await uploadToGoogleDrive();
-      console.log('Successfully synced file to Google Drive after write.');
-    } catch (syncError) {
-      console.error('Failed to sync file to Google Drive:', syncError.message);
-    }
-
-    // Send the success response
     responseSent = true;
     res.status(200).json({ success: true, name });
   } catch (error) {
@@ -345,10 +287,6 @@ app.post('/submit', async (req, res) => {
     }
   } finally {
     isFileWriting = false;
-    if (!responseSent) {
-      console.error('Response was not sent in try-catch block, sending default error response.');
-      res.status(500).json({ success: false, error: 'Internal server error: Response not sent' });
-    }
   }
 });
 
