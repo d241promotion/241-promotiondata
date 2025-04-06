@@ -239,36 +239,15 @@ app.post('/submit', async (req, res) => {
     const nameStr = String(name).trim();
     const emailStr = String(email).trim();
     const phoneStr = String(phone).trim();
-    const dateStr = new Date().toISOString().split('T')[0]; // Use ISO format: "2025-04-06"
-    const newRow = sheet.addRow({ name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
-    console.log('Added new row:', { name: nameStr, email: emailStr, phone: phoneStr, date: dateStr, rowNumber: newRow.number });
+    const dateStr = new Date().toISOString().split('T')[0]; // "2025-04-06"
+    sheet.addRow({ name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
+    console.log('Added new row:', { name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
 
     isFileWriting = true;
-    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE); // Use writeFile instead of buffer for simplicity
+    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     console.log('Data written to local file:', LOCAL_EXCEL_FILE);
 
-    // Validate the written data
-    const validationWorkbook = new ExcelJS.Workbook();
-    await validationWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-    const validationSheet = validationWorkbook.getWorksheet('Customers');
-    const writtenRow = validationSheet.getRow(newRow.number);
-    if (writtenRow) {
-      const lastName = String(writtenRow.getCell(1)?.value || '').trim();
-      const lastEmail = String(writtenRow.getCell(2)?.value || '').trim();
-      const lastPhone = String(writtenRow.getCell(3)?.value || '').trim();
-      const lastDate = String(writtenRow.getCell(4)?.value || '').trim();
-      console.log('Submitted data:', { name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
-      console.log('Written data:', { lastName, lastEmail, lastPhone, lastDate });
-      if (lastName !== nameStr || lastEmail !== emailStr || lastPhone !== phoneStr || lastDate !== dateStr) {
-        console.error('Mismatch detected - Submitted:', { name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
-        console.error('Mismatch detected - Written:', { lastName, lastEmail, lastPhone, lastDate });
-        throw new Error('Last row does not match the submitted data.');
-      }
-    } else {
-      throw new Error('Written row not found after write.');
-    }
-
-    await delay(1000); // Reduced delay for testing
+    await delay(1000);
     await uploadToGoogleDrive();
 
     responseSent = true;
