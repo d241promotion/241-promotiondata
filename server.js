@@ -257,21 +257,22 @@ app.post('/submit', async (req, res) => {
     await fs.rename(tempFile, LOCAL_EXCEL_FILE);
     console.log('Renamed temporary file to:', LOCAL_EXCEL_FILE);
 
-    // Validate using column indices
+    // Validate by checking the exact row added
     const validationWorkbook = new ExcelJS.Workbook();
     await validationWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
     const validationSheet = validationWorkbook.getWorksheet('Customers');
-    const lastRow = validationSheet.lastRow;
-    if (lastRow) {
-      const lastName = lastRow.getCell(1)?.value?.toString().trim();  // Column A
-      const lastEmail = lastRow.getCell(2)?.value?.toString().trim(); // Column B
-      const lastPhone = lastRow.getCell(3)?.value?.toString().trim(); // Column C
-      console.log('Validated last row:', { lastName, lastEmail, lastPhone });
+    const writtenRow = validationSheet.getRow(newRow.number); // Use the row number we added
+    if (writtenRow) {
+      const lastName = writtenRow.getCell(1)?.value?.toString().trim();  // Column A
+      const lastEmail = writtenRow.getCell(2)?.value?.toString().trim(); // Column B
+      const lastPhone = writtenRow.getCell(3)?.value?.toString().trim(); // Column C
+      console.log('Validated written row:', { lastName, lastEmail, lastPhone });
       if (lastName !== name || lastEmail !== email || lastPhone !== phone) {
+        console.log('Mismatch detected - Submitted:', { name, email, phone });
         throw new Error('Last row does not match the submitted data.');
       }
     } else {
-      throw new Error('No last row found after write.');
+      throw new Error('Written row not found after write.');
     }
 
     await delay(3000);
