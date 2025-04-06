@@ -61,12 +61,10 @@ async function loadLocalExcel() {
       throw new Error('Worksheet is empty. Recreating the file.');
     }
 
-    // Check for invalid column count
     if (sheet.columnCount > 16384) {
       throw new Error('Excel file has too many columns. Recreating the file.');
     }
 
-    // Validate column structure
     const expectedColumns = ['Name', 'Email', 'Phone'];
     const actualColumns = sheet.getRow(1).values?.slice(1) || [];
     if (!expectedColumns.every((col, idx) => actualColumns[idx] === col)) {
@@ -74,7 +72,6 @@ async function loadLocalExcel() {
       throw new Error('Invalid column structure.');
     }
 
-    // Additional validation: Check each row for valid data
     let rowData = [];
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber > 1) {
@@ -262,19 +259,43 @@ app.post('/submit', async (req, res) => {
     let writeSuccess = false;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-        console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
+        // Write to a temporary file first
+        const tempFile = LOCAL_EXCEL_FILE + '.tmp';
+        await workbook.xlsx.writeFile(tempFile);
+        console.log('Data written to temporary file:', tempFile);
+
+        // Rename the temporary file to the final file
+        await fs.rename(tempFile, LOCAL_EXCEL_FILE);
+        console.log('Renamed temporary file to:', LOCAL_EXCEL_FILE);
 
         // Check file permissions
         await fs.access(LOCAL_EXCEL_FILE, fs.constants.W_OK);
         console.log('File is writable:', LOCAL_EXCEL_FILE);
 
+        // Validate the file by reading it back
+        const validationWorkbook = new ExcelJS.Workbook();
+        await validationWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+        const validationSheet = validationWorkbook.getWorksheet('Customers');
+        const lastRow = validationSheet.lastRow;
+        if (lastRow) {
+          const lastName = lastRow.getCell('name')?.value?.toString().trim();
+          const lastEmail = lastRow.getCell('email')?.value?.toString().trim();
+          const lastPhone = lastRow.getCell('phone')?.value?.toString().trim();
+          console.log('Last row in file after write:', { name: lastName, email: lastEmail, phone: lastPhone });
+          if (lastName !== name || lastEmail !== email || lastPhone !== phone) {
+            throw new Error('Last row does not match the submitted data.');
+          }
+          console.log('File validated successfully after write with matching data.');
+        } else {
+          throw new Error('No last row found in file after write.');
+        }
+
         writeSuccess = true;
         break;
       } catch (writeError) {
         console.error(`Write attempt ${attempt} failed:`, writeError.message);
-        if (writeError.message.includes('Out of bounds') && attempt < 2) {
-          console.log('Recreating Excel file due to "Out of bounds" error during write...');
+        if ((writeError.message.includes('Out of bounds') || writeError.message.includes('Last row does not match')) && attempt < 2) {
+          console.log('Recreating Excel file due to error during write...');
           const existingData = [];
           sheet.eachRow((row, rowNumber) => {
             if (rowNumber > 1) {
@@ -303,7 +324,7 @@ app.post('/submit', async (req, res) => {
     }
 
     // Increase delay to ensure file write is complete
-    await delay(2000);
+    await delay(3000);
 
     // Force immediate Google Drive sync
     try {
