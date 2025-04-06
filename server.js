@@ -237,7 +237,7 @@ app.post('/submit', async (req, res) => {
     }
 
     // Check for duplicates
-    const { duplicateField, workbook } = await checkDuplicates(email, phone);
+    let { duplicateField, workbook } = await checkDuplicates(email, phone); // Changed to let
     if (duplicateField) {
       console.log(`Duplicate ${duplicateField} detected:`, duplicateField === 'email' ? email : phone);
       responseSent = true;
@@ -306,7 +306,7 @@ app.post('/submit', async (req, res) => {
               });
             }
           });
-          workbook = await initializeExcel();
+          workbook = await initializeExcel(); // Now allowed because workbook is declared with let
           sheet = workbook.getWorksheet('Customers');
           existingData.push({ name, email, phone });
           for (const entry of existingData) {
