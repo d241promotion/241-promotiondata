@@ -34,7 +34,7 @@ async function initializeExcel() {
   ];
   sheet.addRow(['Name', 'Email', 'Phone', 'Date']);
   await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-  console.log('Initialized Excel file:', LOCAL_EXCEL_FILE);
+  console.log('Initialized fresh Excel file:', LOCAL_EXCEL_FILE);
   return { workbook, rowData: [] };
 }
 
@@ -171,11 +171,14 @@ function startGoogleDriveSync() {
     } catch (error) {
       console.error('Periodic sync failed:', error.message);
     }
-  }, 5 * 60 * 1000); // Keep as backup, runs every 5 minutes
+  }, 5 * 60 * 1000); // 5-minute backup sync
 }
 
 async function initializeFromGoogleDrive() {
   try {
+    // Delete local file to ensure a fresh start
+    await fs.unlink(LOCAL_EXCEL_FILE).catch(() => console.log('No local file to delete or already deleted:', LOCAL_EXCEL_FILE));
+
     const response = await drive.files.list({
       q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
       fields: 'files(id)',
@@ -198,11 +201,11 @@ async function initializeFromGoogleDrive() {
       });
       console.log('Downloaded Excel file from Google Drive:', LOCAL_EXCEL_FILE);
     } else {
-      console.log('No Excel file in Google Drive, initializing locally.');
+      console.log('No Excel file in Google Drive, initializing fresh locally.');
       await initializeExcel();
     }
   } catch (error) {
-    console.error('Error initializing from Google Drive:', error.message);
+    console.error('Error during initialization from Google Drive:', error.message);
     await initializeExcel();
   }
 }
@@ -266,9 +269,8 @@ app.post('/submit', async (req, res) => {
     isFileWriting = true;
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     console.log('Data written to local file:', LOCAL_EXCEL_FILE);
-    isFileWriting = false; // Reset immediately after writing
+    isFileWriting = false;
 
-    // Immediate upload to Google Drive
     await uploadToGoogleDrive();
 
     responseSent = true;
