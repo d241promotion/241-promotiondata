@@ -73,7 +73,7 @@ async function loadLocalExcel() {
       const phone = String(row.getCell(3)?.value || '').trim();
       const date = String(row.getCell(4)?.value || '').trim();
       if (name === 'Name' && email === 'Email' && phone === 'Phone' && date === 'Date') {
-        hasDuplicateHeader = true; // Detect duplicate header
+        hasDuplicateHeader = true;
       } else if (name && email && phone) {
         rowData.push({ name, email, phone, date });
       }
@@ -171,7 +171,7 @@ function startGoogleDriveSync() {
     } catch (error) {
       console.error('Periodic sync failed:', error.message);
     }
-  }, 5 * 60 * 1000);
+  }, 5 * 60 * 1000); // Keep as backup, runs every 5 minutes
 }
 
 async function initializeFromGoogleDrive() {
@@ -227,8 +227,6 @@ async function checkDuplicates(email, phone) {
   return { duplicateField, workbook };
 }
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
 app.post('/submit', async (req, res) => {
   let responseSent = false;
   try {
@@ -261,23 +259,16 @@ app.post('/submit', async (req, res) => {
     const nameStr = String(name).trim();
     const emailStr = String(email).trim();
     const phoneStr = String(phone).trim();
-    const dateStr = new Date().toISOString().split('T')[0]; // "2025-04-07"
+    const dateStr = new Date().toISOString().split('T')[0]; // e.g., "2025-04-07"
     sheet.addRow({ name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
     console.log('Added new row:', { name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
 
     isFileWriting = true;
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     console.log('Data written to local file:', LOCAL_EXCEL_FILE);
+    isFileWriting = false; // Reset immediately after writing
 
-    // Log the current sheet content for debugging
-    let rowCount = 0;
-    sheet.eachRow((row, rowNumber) => {
-      rowCount++;
-      console.log(`Row ${rowNumber}:`, row.values.slice(1));
-    });
-    console.log('Total rows in sheet:', rowCount);
-
-    await delay(1000);
+    // Immediate upload to Google Drive
     await uploadToGoogleDrive();
 
     responseSent = true;
