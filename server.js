@@ -6,7 +6,7 @@ const fs = require('fs').promises;
 const { google } = require('googleapis');
 
 const app = express();
-const PORT = process.env.PORT || 10000; // Explicitly set for Render
+const PORT = process.env.PORT || 10000;
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1Vila0sI9fAaAxp17_IZmbbkcegOPGJLD';
 
@@ -52,7 +52,10 @@ async function loadLocalExcel() {
     console.log('Loaded local Excel file:', LOCAL_EXCEL_FILE);
 
     const sheet = workbook.getWorksheet('Customers');
-    if (!sheet) throw new Error('Worksheet "Customers" not found.');
+    if (!sheet) {
+      console.log('Worksheet "Customers" not found, reinitializing.');
+      return await initializeExcel();
+    }
 
     const expectedColumns = ['Name', 'Email', 'Phone', 'Date'];
     const actualColumns = sheet.getRow(1).values?.slice(1) || [];
@@ -62,19 +65,37 @@ async function loadLocalExcel() {
     }
 
     let rowData = [];
+    let hasDuplicateHeader = false;
     sheet.eachRow((row, rowNumber) => {
-      if (rowNumber > 1) {
-        const name = String(row.getCell(1)?.value || '').trim();
-        const email = String(row.getCell(2)?.value || '').trim();
-        const phone = String(row.getCell(3)?.value || '').trim();
-        const date = String(row.getCell(4)?.value || '').trim();
-        if (!name || !email || !phone) {
-          console.log(`Invalid data in row ${rowNumber}, skipping:`, { name, email, phone, date });
-        } else {
-          rowData.push({ name, email, phone, date });
-        }
+      if (rowNumber === 1) return; // Skip header
+      const name = String(row.getCell(1)?.value || '').trim();
+      const email = String(row.getCell(2)?.value || '').trim();
+      const phone = String(row.getCell(3)?.value || '').trim();
+      const date = String(row.getCell(4)?.value || '').trim();
+      if (name === 'Name' && email === 'Email' && phone === 'Phone' && date === 'Date') {
+        hasDuplicateHeader = true; // Detect duplicate header
+      } else if (name && email && phone) {
+        rowData.push({ name, email, phone, date });
       }
     });
+
+    if (hasDuplicateHeader) {
+      console.log('Duplicate header detected, reinitializing file with existing data.');
+      const newWorkbook = new ExcelJS.Workbook();
+      const newSheet = newWorkbook.addWorksheet('Customers', {
+        properties: { defaultColWidth: 20 }
+      });
+      newSheet.columns = [
+        { header: 'Name', key: 'name', width: 20 },
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'Phone', key: 'phone', width: 15 },
+        { header: 'Date', key: 'date', width: 15 },
+      ];
+      newSheet.addRow(['Name', 'Email', 'Phone', 'Date']);
+      rowData.forEach(row => newSheet.addRow(row));
+      await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      return { workbook: newWorkbook, rowData };
+    }
 
     return { workbook, rowData };
   } catch (error) {
@@ -240,13 +261,21 @@ app.post('/submit', async (req, res) => {
     const nameStr = String(name).trim();
     const emailStr = String(email).trim();
     const phoneStr = String(phone).trim();
-    const dateStr = new Date().toISOString().split('T')[0]; // "2025-04-06"
+    const dateStr = new Date().toISOString().split('T')[0]; // "2025-04-07"
     sheet.addRow({ name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
     console.log('Added new row:', { name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
 
     isFileWriting = true;
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     console.log('Data written to local file:', LOCAL_EXCEL_FILE);
+
+    // Log the current sheet content for debugging
+    let rowCount = 0;
+    sheet.eachRow((row, rowNumber) => {
+      rowCount++;
+      console.log(`Row ${rowNumber}:`, row.values.slice(1));
+    });
+    console.log('Total rows in sheet:', rowCount);
 
     await delay(1000);
     await uploadToGoogleDrive();
