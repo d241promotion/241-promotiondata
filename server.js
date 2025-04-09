@@ -212,9 +212,24 @@ app.post('/submit', async (req, res) => {
     const emailStr = String(email).trim();
     const phoneStr = String(phone).trim();
     const dateStr = new Date().toISOString().split('T')[0];
-    
-    // Add the row and get a reference to it
-    const newRow = sheet.addRow({ name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
+
+    // Ensure column keys are set
+    if (!sheet.columns.length) {
+      sheet.columns = [
+        { header: 'Name', key: 'name', width: 20 },
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'Phone', key: 'phone', width: 15 },
+        { header: 'Date', key: 'date', width: 15 },
+      ];
+    }
+
+    // Add row by explicitly setting cell values
+    const newRow = sheet.addRow();
+    newRow.getCell(1).value = nameStr;
+    newRow.getCell(2).value = emailStr;
+    newRow.getCell(3).value = phoneStr;
+    newRow.getCell(4).value = dateStr;
+    newRow.commit(); // Explicitly commit the row
     console.log('Added row values:', [newRow.getCell(1).value, newRow.getCell(2).value, newRow.getCell(3).value, newRow.getCell(4).value]);
     console.log('Rows after adding:', sheet.rowCount);
 
