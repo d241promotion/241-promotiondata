@@ -19,6 +19,18 @@ const drive = google.drive({ version: 'v3', auth });
 app.use(bodyParser.json());
 app.use(express.static(__dirname));
 
+// Log all incoming requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  console.log('Health check requested');
+  res.status(200).send('Server is running');
+});
+
 async function initializeExcel() {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Customers', {
@@ -93,10 +105,17 @@ async function uploadToGoogleDrive() {
     }
 
     const fileStats = await fs.stat(LOCAL_EXCEL_FILE);
+    console.log('Local file size before upload:', fileStats.size);
     if (fileStats.size < 100) {
       console.error('Local Excel file is empty or too small:', LOCAL_EXCEL_FILE);
       throw new Error('Local Excel file is empty.');
     }
+
+    console.log('Reading local file before upload for verification:');
+    const tempWorkbook = new ExcelJS.Workbook();
+    await tempWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+    const tempSheet = tempWorkbook.getWorksheet('Customers');
+    tempSheet.eachRow((row, rowNum) => console.log(`Row ${rowNum}:`, row.values));
 
     console.log('Uploading to Google Drive...');
     const existingFiles = await drive.files.list({
@@ -108,7 +127,6 @@ async function uploadToGoogleDrive() {
       name: 'customers.xlsx',
       parents: [GOOGLE_DRIVE_FOLDER_ID],
     };
-
     const media = {
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       body: require('fs').createReadStream(LOCAL_EXCEL_FILE),
@@ -120,16 +138,16 @@ async function uploadToGoogleDrive() {
       file = await drive.files.update({
         fileId: fileId,
         media: media,
-        fields: 'id',
+        fields: 'id, size',
       });
-      console.log('Updated file in Google Drive, ID:', file.data.id);
+      console.log('Updated file in Google Drive, ID:', file.data.id, 'Size:', file.data.size);
     } else {
       file = await drive.files.create({
         resource: fileMetadata,
         media: media,
-        fields: 'id',
+        fields: 'id, size',
       });
-      console.log('Created new file in Google Drive, ID:', file.data.id);
+      console.log('Created new file in Google Drive, ID:', file.data.id, 'Size:', file.data.size);
     }
   } catch (error) {
     console.error('Google Drive upload failed:', error.stack);
@@ -161,8 +179,8 @@ async function checkDuplicates(email, phone, workbook) {
 app.post('/submit', async (req, res) => {
   let responseSent = false;
   try {
+    console.log('Submit endpoint hit with body:', req.body);
     const { name, email, phone } = req.body;
-    console.log('Received submission:', { name, email, phone });
 
     if (!name || !email || !phone) {
       console.log('Validation failed: Missing required fields');
@@ -195,11 +213,12 @@ app.post('/submit', async (req, res) => {
     const phoneStr = String(phone).trim();
     const dateStr = new Date().toISOString().split('T')[0];
     sheet.addRow({ name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
-    console.log('Added new row:', { name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
-    console.log('Rows after adding:', sheet.rowCount);
+    console.log('Added row:', sheet.lastRow.values);
 
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-    console.log('Data written to local file:', LOCAL_EXCEL_FILE);
+    const fileSize = (await fs.stat(LOCAL_EXCEL_FILE)).size;
+    console.log('Local file size after write:', fileSize);
+    if (fileSize < 100) throw new Error('File write failed: size too small');
 
     await uploadToGoogleDrive();
 
@@ -233,9 +252,24 @@ app.get('/download', async (req, res) => {
   }
 });
 
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason.stack || reason);
+});
+
+// Start the server
 (async () => {
-  await loadFromGoogleDrive();
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  try {
+    await loadFromGoogleDrive();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Startup failed:', error.stack);
+    process.exit(1);
+  }
 })();
