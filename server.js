@@ -32,6 +32,7 @@ async function initializeExcel() {
     { header: 'Phone', key: 'phone', width: 15 },
     { header: 'Date', key: 'date', width: 15 },
   ];
+  // Removed: sheet.addRow(['Name', 'Email', 'Phone', 'Date']);
   await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
   console.log('Initialized fresh Excel file:', LOCAL_EXCEL_FILE);
   return { workbook, rowData: [] };
@@ -64,21 +65,37 @@ async function loadLocalExcel() {
     }
 
     let rowData = [];
+    let hasDuplicateHeader = false;
     sheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return; // Skip header row
+      if (rowNumber === 1) return; // Skip header
       const name = String(row.getCell(1)?.value || '').trim();
       const email = String(row.getCell(2)?.value || '').trim();
       const phone = String(row.getCell(3)?.value || '').trim();
       const date = String(row.getCell(4)?.value || '').trim();
-      // Skip any row that looks like a duplicate header
       if (name === 'Name' && email === 'Email' && phone === 'Phone' && date === 'Date') {
-        console.log('Skipping duplicate header row at line', rowNumber);
-        return;
-      }
-      if (name && email && phone) {
+        hasDuplicateHeader = true;
+      } else if (name && email && phone) {
         rowData.push({ name, email, phone, date });
       }
     });
+
+    if (hasDuplicateHeader) {
+      console.log('Duplicate header detected, reinitializing file with existing data.');
+      const newWorkbook = new ExcelJS.Workbook();
+      const newSheet = newWorkbook.addWorksheet('Customers', {
+        properties: { defaultColWidth: 20 }
+      });
+      newSheet.columns = [
+        { header: 'Name', key: 'name', width: 20 },
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'Phone', key: 'phone', width: 15 },
+        { header: 'Date', key: 'date', width: 15 },
+      ];
+      newSheet.addRow(['Name', 'Email', 'Phone', 'Date']);
+      rowData.forEach(row => newSheet.addRow(row));
+      await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      return { workbook: newWorkbook, rowData };
+    }
 
     return { workbook, rowData };
   } catch (error) {
@@ -159,6 +176,7 @@ function startGoogleDriveSync() {
 
 async function initializeFromGoogleDrive() {
   try {
+    // Delete local file to ensure a fresh start
     await fs.unlink(LOCAL_EXCEL_FILE).catch(() => console.log('No local file to delete or already deleted:', LOCAL_EXCEL_FILE));
 
     const response = await drive.files.list({
