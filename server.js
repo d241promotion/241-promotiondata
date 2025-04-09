@@ -8,6 +8,7 @@ const { google } = require('googleapis');
 const app = express();
 const PORT = process.env.PORT || 10000;
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
+const TEMP_EXCEL_FILE = path.join(__dirname, 'customers_temp.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1l4e6cq0LaFS2IFkJlWKLFJ_CVIEqPqTK';
 
 const auth = new google.auth.GoogleAuth({
@@ -75,6 +76,24 @@ async function loadFromGoogleDrive() {
       workbook = new ExcelJS.Workbook();
       await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
       console.log('Loaded workbook with sheet count:', workbook.worksheets.length);
+
+      const sheet = workbook.getWorksheet('Customers');
+      console.log('Rows loaded from file:');
+      sheet.eachRow((row, rowNum) => console.log(`Row ${rowNum}:`, row.values));
+
+      // Trim excess rows if row count seems inflated
+      let actualLastRow = 0;
+      sheet.eachRow((row, rowNum) => {
+        if (row.getCell(1).value || row.getCell(2).value || row.getCell(3).value || row.getCell(4).value) {
+          actualLastRow = rowNum;
+        }
+      });
+      if (sheet.rowCount > actualLastRow) {
+        console.log(`Trimming excess rows: ${sheet.rowCount} -> ${actualLastRow}`);
+        for (let i = sheet.rowCount; i > actualLastRow; i--) {
+          sheet.spliceRows(i, 1);
+        }
+      }
     } else {
       console.log('No Excel file in Google Drive, initializing fresh.');
       workbook = await initializeExcel();
@@ -229,12 +248,13 @@ app.post('/submit', async (req, res) => {
     newRow.getCell(2).value = emailStr;
     newRow.getCell(3).value = phoneStr;
     newRow.getCell(4).value = dateStr;
-    newRow.commit(); // Explicitly commit the row
+    newRow.commit();
     console.log('Added row values:', [newRow.getCell(1).value, newRow.getCell(2).value, newRow.getCell(3).value, newRow.getCell(4).value]);
     console.log('Rows after adding:', sheet.rowCount);
 
-    // Write to file and verify
-    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+    // Write to a temp file first, then move to final location
+    await workbook.xlsx.writeFile(TEMP_EXCEL_FILE);
+    await fs.rename(TEMP_EXCEL_FILE, LOCAL_EXCEL_FILE);
     const fileSize = (await fs.stat(LOCAL_EXCEL_FILE)).size;
     console.log('Local file size after write:', fileSize);
     if (fileSize < 100) throw new Error('File write failed: size too small');
