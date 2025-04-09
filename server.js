@@ -32,7 +32,7 @@ async function initializeExcel() {
     { header: 'Phone', key: 'phone', width: 15 },
     { header: 'Date', key: 'date', width: 15 },
   ];
-  sheet.addRow(['Name', 'Email', 'Phone', 'Date']);
+  // Removed: sheet.addRow(['Name', 'Email', 'Phone', 'Date']);
   await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
   console.log('Initialized fresh Excel file:', LOCAL_EXCEL_FILE);
   return { workbook, rowData: [] };
