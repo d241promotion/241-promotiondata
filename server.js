@@ -32,7 +32,6 @@ async function initializeExcel() {
     { header: 'Phone', key: 'phone', width: 15 },
     { header: 'Date', key: 'date', width: 15 },
   ];
-  // Removed: sheet.addRow(['Name', 'Email', 'Phone', 'Date']);
   await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
   console.log('Initialized fresh Excel file:', LOCAL_EXCEL_FILE);
   return { workbook, rowData: [] };
@@ -91,7 +90,6 @@ async function loadLocalExcel() {
         { header: 'Phone', key: 'phone', width: 15 },
         { header: 'Date', key: 'date', width: 15 },
       ];
-      newSheet.addRow(['Name', 'Email', 'Phone', 'Date']);
       rowData.forEach(row => newSheet.addRow(row));
       await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
       return { workbook: newWorkbook, rowData };
@@ -176,9 +174,6 @@ function startGoogleDriveSync() {
 
 async function initializeFromGoogleDrive() {
   try {
-    // Delete local file to ensure a fresh start
-    await fs.unlink(LOCAL_EXCEL_FILE).catch(() => console.log('No local file to delete or already deleted:', LOCAL_EXCEL_FILE));
-
     const response = await drive.files.list({
       q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
       fields: 'files(id)',
@@ -262,7 +257,7 @@ app.post('/submit', async (req, res) => {
     const nameStr = String(name).trim();
     const emailStr = String(email).trim();
     const phoneStr = String(phone).trim();
-    const dateStr = new Date().toISOString().split('T')[0]; // e.g., "2025-04-07"
+    const dateStr = new Date().toISOString().split('T')[0];
     sheet.addRow({ name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
     console.log('Added new row:', { name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
 
@@ -276,7 +271,7 @@ app.post('/submit', async (req, res) => {
     responseSent = true;
     res.status(200).json({ success: true, name });
   } catch (error) {
-    console.error('Failed to process submission:', error.message);
+    console.error('Failed to process submission:', error.stack); // Enhanced logging
     if (!responseSent) {
       responseSent = true;
       res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
