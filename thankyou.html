@@ -71,25 +71,6 @@
       position: relative;
       z-index: 1;
     }
-    .cta-button {
-      background: #E63946;
-      color: white;
-      padding: 15px 30px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 1.2em;
-      font-weight: bold;
-      display: inline-block;
-      text-decoration: none;
-      margin: 10px 0;
-      transition: background 0.3s;
-      position: relative;
-      z-index: 1;
-    }
-    .cta-button:hover {
-      background: #F4A261;
-    }
     .share-buttons {
       display: flex;
       justify-content: center;
@@ -99,20 +80,24 @@
       z-index: 1;
     }
     .share-button {
-      color: #E63946;
+      color: white;
+      background: #E63946; /* Button background color */
+      padding: 10px 20px; /* Padding to give button-like appearance */
+      border-radius: 8px; /* Rounded corners */
       font-size: 1em;
       text-decoration: none;
       font-weight: bold;
-      transition: color 0.3s;
+      transition: background 0.3s; /* Smooth background color change on hover */
     }
     .share-button:hover {
-      color: #F4A261;
+      background: #F4A261; /* Hover color matching your theme */
     }
     @media (max-width: 600px) {
       .container { padding: 20px; }
       h1 { font-size: 2em; }
       h2 { font-size: 1.5em; }
       .pizza-slices { width: 60%; }
+      .share-button { padding: 8px 15px; font-size: 0.9em; } /* Adjust button size for mobile */
     }
   </style>
 </head>
@@ -122,9 +107,8 @@
     <h1>🎉 Congratulations, <span id="name"></span>!</h1>
     <h2>You won: <span id="prize"></span></h2>
     <p>Show this screen at 241 Pizza to claim your prize!</p>
-    <a href="https://241pizza.com" class="cta-button">Claim Prize!</a><br>
     <div class="share-buttons">
-      <a href="https://twitter.com/241pizzawinston" target="_blank" class="share-button">Follow us on X</a>
+      <a href="https://241pizza.com" target="_blank" class="share-button">Visit 241 Pizza</a>
       <a href="https://www.instagram.com/241pizzawinston" target="_blank" class="share-button">Follow us on Instagram</a>
     </div>
   </div>
