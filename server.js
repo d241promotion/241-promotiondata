@@ -212,13 +212,24 @@ app.post('/submit', async (req, res) => {
     const emailStr = String(email).trim();
     const phoneStr = String(phone).trim();
     const dateStr = new Date().toISOString().split('T')[0];
-    sheet.addRow({ name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
-    console.log('Added row:', sheet.lastRow.values);
+    
+    // Add the row and get a reference to it
+    const newRow = sheet.addRow({ name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
+    console.log('Added row values:', [newRow.getCell(1).value, newRow.getCell(2).value, newRow.getCell(3).value, newRow.getCell(4).value]);
+    console.log('Rows after adding:', sheet.rowCount);
 
+    // Write to file and verify
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     const fileSize = (await fs.stat(LOCAL_EXCEL_FILE)).size;
     console.log('Local file size after write:', fileSize);
     if (fileSize < 100) throw new Error('File write failed: size too small');
+
+    // Verify the last row was saved
+    const tempWorkbook = new ExcelJS.Workbook();
+    await tempWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+    const tempSheet = tempWorkbook.getWorksheet('Customers');
+    const lastRow = tempSheet.lastRow;
+    console.log('Verified last row in file:', [lastRow.getCell(1).value, lastRow.getCell(2).value, lastRow.getCell(3).value, lastRow.getCell(4).value]);
 
     await uploadToGoogleDrive();
 
