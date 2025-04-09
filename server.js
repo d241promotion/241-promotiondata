@@ -42,6 +42,7 @@ async function loadFromGoogleDrive() {
       fields: 'files(id)',
     });
 
+    let workbook;
     if (response.data.files.length > 0) {
       const fileId = response.data.files[0].id;
       const file = await drive.files.get(
@@ -59,15 +60,26 @@ async function loadFromGoogleDrive() {
       });
       console.log('Downloaded Excel file from Google Drive:', LOCAL_EXCEL_FILE);
 
-      const workbook = new ExcelJS.Workbook();
+      workbook = new ExcelJS.Workbook();
       await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-      return workbook;
+      console.log('Loaded workbook with sheet count:', workbook.worksheets.length);
     } else {
       console.log('No Excel file in Google Drive, initializing fresh.');
-      return await initializeExcel();
+      workbook = await initializeExcel();
     }
+
+    const sheet = workbook.getWorksheet('Customers') || workbook.addWorksheet('Customers');
+    if (!sheet.columns.length) {
+      sheet.columns = [
+        { header: 'Name', key: 'name', width: 20 },
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'Phone', key: 'phone', width: 15 },
+        { header: 'Date', key: 'date', width: 15 },
+      ];
+    }
+    return workbook;
   } catch (error) {
-    console.error('Error loading from Google Drive:', error.message);
+    console.error('Error loading from Google Drive:', error.stack);
     return await initializeExcel();
   }
 }
@@ -120,7 +132,7 @@ async function uploadToGoogleDrive() {
       console.log('Created new file in Google Drive, ID:', file.data.id);
     }
   } catch (error) {
-    console.error('Google Drive upload failed:', error.message);
+    console.error('Google Drive upload failed:', error.stack);
     throw error;
   }
 }
@@ -164,8 +176,10 @@ app.post('/submit', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid phone number (10 digits required)' });
     }
 
-    // Load the latest from Google Drive for each submission
     const workbook = await loadFromGoogleDrive();
+    const sheet = workbook.getWorksheet('Customers');
+    console.log('Rows before adding:', sheet.rowCount);
+
     const duplicateField = await checkDuplicates(email, phone, workbook);
     if (duplicateField) {
       console.log(`Duplicate ${duplicateField} detected:`, duplicateField === 'email' ? email : phone);
@@ -176,13 +190,13 @@ app.post('/submit', async (req, res) => {
       });
     }
 
-    let sheet = workbook.getWorksheet('Customers');
     const nameStr = String(name).trim();
     const emailStr = String(email).trim();
     const phoneStr = String(phone).trim();
     const dateStr = new Date().toISOString().split('T')[0];
     sheet.addRow({ name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
     console.log('Added new row:', { name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
+    console.log('Rows after adding:', sheet.rowCount);
 
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     console.log('Data written to local file:', LOCAL_EXCEL_FILE);
@@ -203,7 +217,7 @@ app.post('/submit', async (req, res) => {
 app.get('/download', async (req, res) => {
   try {
     const workbook = await loadFromGoogleDrive();
-    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE); // Ensure latest version is local
+    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
     if (!fileExists) {
       return res.status(404).send('No customer data available yet');
@@ -214,13 +228,13 @@ app.get('/download', async (req, res) => {
     const fileStream = require('fs').createReadStream(LOCAL_EXCEL_FILE);
     fileStream.pipe(res);
   } catch (error) {
-    console.error('Error downloading local file:', error.message);
+    console.error('Error downloading local file:', error.stack);
     res.status(500).send('Error downloading file');
   }
 });
 
 (async () => {
-  await loadFromGoogleDrive(); // Initial load
+  await loadFromGoogleDrive();
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
