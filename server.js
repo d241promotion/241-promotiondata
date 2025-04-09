@@ -10,8 +10,6 @@ const PORT = process.env.PORT || 10000;
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1l4e6cq0LaFS2IFkJlWKLFJ_CVIEqPqTK';
 
-let isFileWriting = false;
-
 const auth = new google.auth.GoogleAuth({
   credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT || '{}'),
   scopes: ['https://www.googleapis.com/auth/drive'],
@@ -34,80 +32,47 @@ async function initializeExcel() {
   ];
   await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
   console.log('Initialized fresh Excel file:', LOCAL_EXCEL_FILE);
-  return { workbook, rowData: [] };
+  return workbook;
 }
 
-async function loadLocalExcel() {
-  let workbook;
+async function loadFromGoogleDrive() {
   try {
-    const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
-    if (!fileExists) {
-      console.log('Excel file not found locally. Creating new one.');
-      return await initializeExcel();
-    }
-
-    workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-    console.log('Loaded local Excel file:', LOCAL_EXCEL_FILE);
-
-    const sheet = workbook.getWorksheet('Customers');
-    if (!sheet) {
-      console.log('Worksheet "Customers" not found, reinitializing.');
-      return await initializeExcel();
-    }
-
-    const expectedColumns = ['Name', 'Email', 'Phone', 'Date'];
-    const actualColumns = sheet.getRow(1).values?.slice(1) || [];
-    if (!expectedColumns.every((col, idx) => actualColumns[idx] === col)) {
-      console.log('Invalid column structure, reinitializing file.');
-      return await initializeExcel();
-    }
-
-    let rowData = [];
-    let hasDuplicateHeader = false;
-    sheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return; // Skip header
-      const name = String(row.getCell(1)?.value || '').trim();
-      const email = String(row.getCell(2)?.value || '').trim();
-      const phone = String(row.getCell(3)?.value || '').trim();
-      const date = String(row.getCell(4)?.value || '').trim();
-      if (name === 'Name' && email === 'Email' && phone === 'Phone' && date === 'Date') {
-        hasDuplicateHeader = true;
-      } else if (name && email && phone) {
-        rowData.push({ name, email, phone, date });
-      }
+    const response = await drive.files.list({
+      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
+      fields: 'files(id)',
     });
 
-    if (hasDuplicateHeader) {
-      console.log('Duplicate header detected, reinitializing file with existing data.');
-      const newWorkbook = new ExcelJS.Workbook();
-      const newSheet = newWorkbook.addWorksheet('Customers', {
-        properties: { defaultColWidth: 20 }
-      });
-      newSheet.columns = [
-        { header: 'Name', key: 'name', width: 20 },
-        { header: 'Email', key: 'email', width: 30 },
-        { header: 'Phone', key: 'phone', width: 15 },
-        { header: 'Date', key: 'date', width: 15 },
-      ];
-      rowData.forEach(row => newSheet.addRow(row));
-      await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-      return { workbook: newWorkbook, rowData };
-    }
+    if (response.data.files.length > 0) {
+      const fileId = response.data.files[0].id;
+      const file = await drive.files.get(
+        { fileId, alt: 'media' },
+        { responseType: 'stream' }
+      );
 
-    return { workbook, rowData };
+      await new Promise((resolve, reject) => {
+        const dest = require('fs').createWriteStream(LOCAL_EXCEL_FILE);
+        file.data
+          .on('error', reject)
+          .pipe(dest)
+          .on('error', reject)
+          .on('finish', resolve);
+      });
+      console.log('Downloaded Excel file from Google Drive:', LOCAL_EXCEL_FILE);
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+      return workbook;
+    } else {
+      console.log('No Excel file in Google Drive, initializing fresh.');
+      return await initializeExcel();
+    }
   } catch (error) {
-    console.error('Error loading Excel file:', error.message);
+    console.error('Error loading from Google Drive:', error.message);
     return await initializeExcel();
   }
 }
 
 async function uploadToGoogleDrive() {
-  if (isFileWriting) {
-    console.log('File is being written, skipping Google Drive sync.');
-    return;
-  }
-
   try {
     const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
     if (!fileExists) {
@@ -160,69 +125,25 @@ async function uploadToGoogleDrive() {
   }
 }
 
-function startGoogleDriveSync() {
-  setInterval(async () => {
-    try {
-      console.log('Starting periodic sync with Google Drive...');
-      await uploadToGoogleDrive();
-      console.log('Periodic sync completed.');
-    } catch (error) {
-      console.error('Periodic sync failed:', error.message);
-    }
-  }, 5 * 60 * 1000); // 5-minute backup sync
-}
-
-async function initializeFromGoogleDrive() {
-  try {
-    const response = await drive.files.list({
-      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
-      fields: 'files(id)',
-    });
-
-    if (response.data.files.length > 0) {
-      const fileId = response.data.files[0].id;
-      const file = await drive.files.get(
-        { fileId, alt: 'media' },
-        { responseType: 'stream' }
-      );
-
-      await new Promise((resolve, reject) => {
-        const dest = require('fs').createWriteStream(LOCAL_EXCEL_FILE);
-        file.data
-          .on('error', reject)
-          .pipe(dest)
-          .on('error', reject)
-          .on('finish', resolve);
-      });
-      console.log('Downloaded Excel file from Google Drive:', LOCAL_EXCEL_FILE);
-    } else {
-      console.log('No Excel file in Google Drive, initializing fresh locally.');
-      await initializeExcel();
-    }
-  } catch (error) {
-    console.error('Error during initialization from Google Drive:', error.message);
-    await initializeExcel();
-  }
-}
-
-async function checkDuplicates(email, phone) {
-  const { workbook, rowData } = await loadLocalExcel();
+async function checkDuplicates(email, phone, workbook) {
+  const sheet = workbook.getWorksheet('Customers');
   let duplicateField = null;
 
   const normalizedEmail = email.toString().trim().toLowerCase();
   const normalizedPhone = phone.toString().trim();
 
-  for (const row of rowData) {
-    if (row.email.toLowerCase() === normalizedEmail) {
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return; // Skip header
+    const rowEmail = String(row.getCell(2)?.value || '').trim().toLowerCase();
+    const rowPhone = String(row.getCell(3)?.value || '').trim();
+    if (rowEmail === normalizedEmail) {
       duplicateField = 'email';
-      break;
-    } else if (row.phone === normalizedPhone) {
+    } else if (rowPhone === normalizedPhone) {
       duplicateField = 'phone';
-      break;
     }
-  }
+  });
 
-  return { duplicateField, workbook };
+  return duplicateField;
 }
 
 app.post('/submit', async (req, res) => {
@@ -243,7 +164,9 @@ app.post('/submit', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid phone number (10 digits required)' });
     }
 
-    let { duplicateField, workbook } = await checkDuplicates(email, phone);
+    // Load the latest from Google Drive for each submission
+    const workbook = await loadFromGoogleDrive();
+    const duplicateField = await checkDuplicates(email, phone, workbook);
     if (duplicateField) {
       console.log(`Duplicate ${duplicateField} detected:`, duplicateField === 'email' ? email : phone);
       responseSent = true;
@@ -261,28 +184,26 @@ app.post('/submit', async (req, res) => {
     sheet.addRow({ name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
     console.log('Added new row:', { name: nameStr, email: emailStr, phone: phoneStr, date: dateStr });
 
-    isFileWriting = true;
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     console.log('Data written to local file:', LOCAL_EXCEL_FILE);
-    isFileWriting = false;
 
     await uploadToGoogleDrive();
 
     responseSent = true;
     res.status(200).json({ success: true, name });
   } catch (error) {
-    console.error('Failed to process submission:', error.stack); // Enhanced logging
+    console.error('Failed to process submission:', error.stack);
     if (!responseSent) {
       responseSent = true;
       res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
     }
-  } finally {
-    isFileWriting = false;
   }
 });
 
 app.get('/download', async (req, res) => {
   try {
+    const workbook = await loadFromGoogleDrive();
+    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE); // Ensure latest version is local
     const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
     if (!fileExists) {
       return res.status(404).send('No customer data available yet');
@@ -299,9 +220,7 @@ app.get('/download', async (req, res) => {
 });
 
 (async () => {
-  await initializeFromGoogleDrive();
-  startGoogleDriveSync();
-
+  await loadFromGoogleDrive(); // Initial load
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
