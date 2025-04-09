@@ -5,7 +5,6 @@
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
-      /* Updated to use the new image */
       background: url('new images/pizza with wings.jpg') center/cover no-repeat fixed;
       background-color: #FFF9E5; /* Light pastel yellow as fallback */
       text-align: center;
@@ -103,23 +102,24 @@
   </div>
 
   <script>
-    // Defer wheel rendering until the DOM is fully loaded
     document.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
       const name = params.get('name') || 'Guest';
       document.getElementById('user-name').textContent = name;
 
-      const prizes = ['Free Dip', 'Free Pop', 'Free Chipbag', '10% Off', 'Free Soda'];
+      // Define 4 offers, with "Free Chipsbag" as the non-winning option
+      const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
+      const winnablePrizes = ['Free Dip', 'Free Cookie', 'Free Can']; // Only these can win
       let currentAngle = 0;
       let spinning = false;
 
       const canvas = document.getElementById('wheel');
       const ctx = canvas.getContext('2d');
-      const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C', '#9BC53D']; // Bright colors
+      const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C']; // 4 colors for 4 segments
       const radius = 225;
       const centerX = 225;
       const centerY = 225;
-      const arc = (2 * Math.PI) / prizes.length;
+      const arc = (2 * Math.PI) / prizes.length; // 90 degrees per segment (360 / 4)
 
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -155,21 +155,27 @@
         spinning = true;
         document.getElementById('spin-btn').disabled = true;
 
-        let spinTime = 4000;
-        let spinAngleStart = Math.random() * 360 + 720;
+        // Choose a winning prize from winnablePrizes (excludes Free Chipsbag)
+        const winningIndex = Math.floor(Math.random() * winnablePrizes.length); // 0, 1, or 2
+        const winningPrize = winnablePrizes[winningIndex];
+        const segmentIndex = prizes.indexOf(winningPrize); // Map to full prizes array
+
+        // Calculate stop angle to land on the winning segment
+        const arcDeg = 360 / prizes.length; // 90 degrees per segment
+        const stopAngle = segmentIndex * arcDeg + (Math.random() * arcDeg * 0.8) + (arcDeg * 0.1); // Random within segment
+        let spinAngleStart = 720 + stopAngle; // At least 2 full spins + stop angle
         currentAngle += spinAngleStart;
 
         canvas.style.transform = `rotate(${currentAngle}deg)`;
 
         setTimeout(() => {
-          determinePrize();
-        }, spinTime);
+          determinePrize(winningPrize);
+        }, 4000);
       }
 
-      function determinePrize() {
-        const arcDeg = 360 / prizes.length;
-        let index = Math.floor(((currentAngle % 360) / arcDeg) % prizes.length);
-        let prize = prizes[prizes.length - index - 1];
+      function determinePrize(prize) {
+        spinning = false;
+        document.getElementById('spin-btn').disabled = false;
         window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
       }
 
