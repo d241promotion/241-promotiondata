@@ -6,7 +6,7 @@
     body {
       font-family: 'Poppins', Arial, sans-serif;
       background: url('new images/pizza with wings.jpg') center/cover no-repeat fixed;
-      background-color: #FFF9E5; /* Light pastel yellow as fallback */
+      background-color: #FFF9E5;
       text-align: center;
       padding: 0;
       margin: 0;
@@ -22,7 +22,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.5); /* Slightly darker overlay for better contrast with the new image */
+      background: rgba(0, 0, 0, 0.5);
     }
     .container {
       max-width: 600px;
@@ -77,13 +77,13 @@
       cursor: not-allowed;
     }
     h1 {
-      color: #FFFFFF; /* Changed to white for better contrast with the new background */
+      color: #FFFFFF;
       font-weight: bold;
       font-size: 2.8em;
       text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
     }
     #user-name {
-      color: #FFD60A; /* Bright yellow for better visibility */
+      color: #FFD60A;
     }
     @media (max-width: 600px) {
       .wheel-container { width: 300px; height: 300px; }
@@ -107,19 +107,18 @@
       const name = params.get('name') || 'Guest';
       document.getElementById('user-name').textContent = name;
 
-      // Define 4 offers, with "Free Chipsbag" as the non-winning option
       const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
-      const winnablePrizes = ['Free Dip', 'Free Cookie', 'Free Can']; // Only these can win
+      const winnablePrizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag']; // All winnable
       let currentAngle = 0;
       let spinning = false;
 
       const canvas = document.getElementById('wheel');
       const ctx = canvas.getContext('2d');
-      const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C']; // 4 colors for 4 segments
+      const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
       const radius = 225;
       const centerX = 225;
       const centerY = 225;
-      const arc = (2 * Math.PI) / prizes.length; // 90 degrees per segment (360 / 4)
+      const arc = (2 * Math.PI) / prizes.length;
 
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -141,7 +140,7 @@
           ctx.translate(centerX, centerY);
           ctx.rotate(startAngle + arc / 2);
           ctx.textAlign = 'center';
-          ctx.fillStyle = '#333'; // Darker text for contrast
+          ctx.fillStyle = '#333';
           ctx.font = 'bold 18px Poppins';
           ctx.fillText(prizes[i], 120, 0);
           ctx.restore();
@@ -155,16 +154,16 @@
         spinning = true;
         document.getElementById('spin-btn').disabled = true;
 
-        // Choose a winning prize from winnablePrizes (excludes Free Chipsbag)
-        const winningIndex = Math.floor(Math.random() * winnablePrizes.length); // 0, 1, or 2
+        const winningIndex = Math.floor(Math.random() * winnablePrizes.length);
         const winningPrize = winnablePrizes[winningIndex];
-        const segmentIndex = prizes.indexOf(winningPrize); // Map to full prizes array
+        const segmentIndex = prizes.indexOf(winningPrize);
 
-        // Calculate stop angle to land on the winning segment
-        const arcDeg = 360 / prizes.length; // 90 degrees per segment
-        const stopAngle = segmentIndex * arcDeg + (Math.random() * arcDeg * 0.8) + (arcDeg * 0.1); // Random within segment
-        let spinAngleStart = 720 + stopAngle; // At least 2 full spins + stop angle
+        const arcDeg = 360 / prizes.length;
+        const stopAngle = segmentIndex * arcDeg + (Math.random() * arcDeg * 0.8) + (arcDeg * 0.1);
+        let spinAngleStart = 720 + stopAngle;
         currentAngle += spinAngleStart;
+
+        console.log(`Winning Prize: ${winningPrize}, Segment Index: ${segmentIndex}, Stop Angle: ${stopAngle}`);
 
         canvas.style.transform = `rotate(${currentAngle}deg)`;
 
@@ -176,7 +175,32 @@
       function determinePrize(prize) {
         spinning = false;
         document.getElementById('spin-btn').disabled = false;
-        window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+
+        const email = localStorage.getItem('userEmail') || '';
+        if (email) {
+          fetch('/save-prize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, prize }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                console.log(`Prize saved: ${prize}`);
+                window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+              } else {
+                console.error('Failed to save prize:', data.error);
+                window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+              }
+            })
+            .catch((error) => {
+              console.error('Failed to save prize:', error);
+              window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+            });
+        } else {
+          console.warn('No email found, skipping prize save');
+          window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+        }
       }
 
       document.getElementById('spin-btn').addEventListener('click', spinWheel);
