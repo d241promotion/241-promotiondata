@@ -181,7 +181,7 @@
         }
 
         if (result.success) {
-          localStorage.setItem('userEmail', email); // Store email for wheel.html
+          localStorage.setItem('userEmail', email);
           const redirectUrl = `wheel.html?name=${encodeURIComponent(name)}`;
           window.location.href = redirectUrl;
         } else {
