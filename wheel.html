@@ -159,7 +159,7 @@
         const segmentIndex = prizes.indexOf(winningPrize);
 
         const arcDeg = 360 / prizes.length; // 90 degrees per segment
-        const stopAngle = segmentIndex * arcDeg + arcDeg / 2; // Center of segment (e.g., 45°, 135°)
+        const stopAngle = (segmentIndex * arcDeg + arcDeg / 2); // Center of segment
         const spinAngleStart = 720 + stopAngle;
 
         currentAngle = spinAngleStart;
@@ -172,15 +172,15 @@
 
         setTimeout(() => {
           const finalAngle = currentAngle % 360;
-          const landedSegment = Math.floor(finalAngle / arcDeg);
-          const landedPrize = prizes[landedSegment] || prizes[prizes.length - 1];
+          const landedSegment = Math.floor((finalAngle + arcDeg / 2) / arcDeg) % prizes.length;
+          const landedPrize = prizes[landedSegment];
 
           console.log(
-            `Wheel stopped at ${finalAngle} degrees, Landed Segment: ${landedSegment}, Landed Prize: ${landedPrize}, Expected Prize: ${winningPrize}`
+            `Wheel stopped at ${finalAngle} degrees, Calculated Landed Segment: ${landedSegment}, Landed Prize: ${landedPrize}, Expected Prize: ${winningPrize}`
           );
 
           if (landedPrize !== winningPrize) {
-            console.error(`Mismatch detected! Adjusting to expected prize: ${winningPrize}`);
+            console.error(`Mismatch detected! Forcing prize to: ${winningPrize}`);
           }
 
           determinePrize(winningPrize);
