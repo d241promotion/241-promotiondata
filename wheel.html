@@ -108,7 +108,7 @@
       document.getElementById('user-name').textContent = name;
 
       const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
-      const winnablePrizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag']; // All winnable
+      const winnablePrizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
       let currentAngle = 0;
       let spinning = false;
 
@@ -118,12 +118,12 @@
       const radius = 225;
       const centerX = 225;
       const centerY = 225;
-      const arc = (2 * Math.PI) / prizes.length;
+      const arc = (2 * Math.PI) / prizes.length; // 90 degrees in radians
 
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         for (let i = 0; i < prizes.length; i++) {
-          const startAngle = i * arc - Math.PI / 2;
+          const startAngle = i * arc - Math.PI / 2; // Start at top
           const endAngle = (i + 1) * arc - Math.PI / 2;
 
           ctx.beginPath();
@@ -158,16 +158,28 @@
         const winningPrize = winnablePrizes[winningIndex];
         const segmentIndex = prizes.indexOf(winningPrize);
 
-        const arcDeg = 360 / prizes.length;
-        const stopAngle = segmentIndex * arcDeg + (Math.random() * arcDeg * 0.8) + (arcDeg * 0.1);
-        let spinAngleStart = 720 + stopAngle;
+        const arcDeg = 360 / prizes.length; // 90 degrees per segment
+        // Center the pointer in the segment (45 degrees for 90-degree segments)
+        const stopAngle = segmentIndex * arcDeg + arcDeg / 2;
+        const spinAngleStart = 720 + stopAngle; // At least 2 full spins
+
         currentAngle += spinAngleStart;
 
-        console.log(`Winning Prize: ${winningPrize}, Segment Index: ${segmentIndex}, Stop Angle: ${stopAngle}`);
+        console.log(
+          `Selected Prize: ${winningPrize}, Segment Index: ${segmentIndex}, Stop Angle: ${stopAngle}, Total Rotation: ${currentAngle}`
+        );
 
         canvas.style.transform = `rotate(${currentAngle}deg)`;
 
         setTimeout(() => {
+          // Verify the final segment
+          const finalAngle = currentAngle % 360;
+          const landedSegment = Math.floor(finalAngle / arcDeg);
+          const landedPrize = prizes[landedSegment];
+          console.log(
+            `Wheel stopped at ${finalAngle} degrees, Landed Segment: ${landedSegment}, Landed Prize: ${landedPrize}, Expected Prize: ${winningPrize}`
+          );
+
           determinePrize(winningPrize);
         }, 4000);
       }
@@ -186,7 +198,7 @@
             .then((response) => response.json())
             .then((data) => {
               if (data.success) {
-                console.log(`Prize saved: ${prize}`);
+                console.log(`Prize saved: ${prize}, Redirecting to thankyou.html`);
                 window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
               } else {
                 console.error('Failed to save prize:', data.error);
