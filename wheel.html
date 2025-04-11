@@ -123,7 +123,7 @@
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         for (let i = 0; i < prizes.length; i++) {
-          const startAngle = i * arc - Math.PI / 2; // Start at top
+          const startAngle = i * arc - Math.PI / 2;
           const endAngle = (i + 1) * arc - Math.PI / 2;
 
           ctx.beginPath();
@@ -154,16 +154,17 @@
         spinning = true;
         document.getElementById('spin-btn').disabled = true;
 
+        // Select a random prize
         const winningIndex = Math.floor(Math.random() * winnablePrizes.length);
         const winningPrize = winnablePrizes[winningIndex];
         const segmentIndex = prizes.indexOf(winningPrize);
 
         const arcDeg = 360 / prizes.length; // 90 degrees per segment
-        // Center the pointer in the segment (45 degrees for 90-degree segments)
-        const stopAngle = segmentIndex * arcDeg + arcDeg / 2;
-        const spinAngleStart = 720 + stopAngle; // At least 2 full spins
+        // Stop at the start of the segment to align with pointer at top (0 degrees)
+        const stopAngle = segmentIndex * arcDeg;
+        const spinAngleStart = 720 + stopAngle; // 2 full spins + stop angle
 
-        currentAngle += spinAngleStart;
+        currentAngle = spinAngleStart; // Reset to exact angle for precision
 
         console.log(
           `Selected Prize: ${winningPrize}, Segment Index: ${segmentIndex}, Stop Angle: ${stopAngle}, Total Rotation: ${currentAngle}`
@@ -172,13 +173,21 @@
         canvas.style.transform = `rotate(${currentAngle}deg)`;
 
         setTimeout(() => {
-          // Verify the final segment
+          // Calculate final angle and verify segment
           const finalAngle = currentAngle % 360;
           const landedSegment = Math.floor(finalAngle / arcDeg);
-          const landedPrize = prizes[landedSegment];
+          const landedPrize = prizes[landedSegment] || prizes[prizes.length - 1]; // Fallback to last prize
+
           console.log(
             `Wheel stopped at ${finalAngle} degrees, Landed Segment: ${landedSegment}, Landed Prize: ${landedPrize}, Expected Prize: ${winningPrize}`
           );
+
+          if (landedPrize !== winningPrize) {
+            console.error(`Mismatch detected! Adjusting to expected prize: ${winningPrize}`);
+          }
+
+          // Show alert to confirm prize before redirect
+          alert(`You won: ${winningPrize}!`);
 
           determinePrize(winningPrize);
         }, 4000);
@@ -189,6 +198,9 @@
         document.getElementById('spin-btn').disabled = false;
 
         const email = localStorage.getItem('userEmail') || '';
+        const redirectUrl = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+        console.log(`Redirecting to: ${redirectUrl}`);
+
         if (email) {
           fetch('/save-prize', {
             method: 'POST',
@@ -198,20 +210,20 @@
             .then((response) => response.json())
             .then((data) => {
               if (data.success) {
-                console.log(`Prize saved: ${prize}, Redirecting to thankyou.html`);
-                window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+                console.log(`Prize saved: ${prize}`);
+                window.location.href = redirectUrl;
               } else {
                 console.error('Failed to save prize:', data.error);
-                window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+                window.location.href = redirectUrl;
               }
             })
             .catch((error) => {
               console.error('Failed to save prize:', error);
-              window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+              window.location.href = redirectUrl;
             });
         } else {
           console.warn('No email found, skipping prize save');
-          window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+          window.location.href = redirectUrl;
         }
       }
 
