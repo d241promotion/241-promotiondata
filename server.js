@@ -36,6 +36,12 @@ app.get('/health', (req, res) => {
   res.status(200).send('Server is running');
 });
 
+// Catch-all for 404s after static middleware
+app.use((req, res, next) => {
+  console.log(`404 Not Found: ${req.method} ${req.url}`);
+  res.status(404).send('Not Found');
+});
+
 async function initializeExcel() {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Customers', {
