@@ -174,9 +174,9 @@
             determinePrize(intendedPrize);
           } catch (error) {
             console.error('Error in determinePrize:', error);
-            const fallbackUrl = `thanks.html?prize=${encodeURIComponent(intendedPrize)}&name=${encodeURIComponent(name)}`;
-            console.log('Emergency redirect to:', fallbackUrl);
-            window.location.assign(fallbackUrl);
+            const fallbackUrl = `/thanks.html?prize=${encodeURIComponent(intendedPrize)}&name=${encodeURIComponent(name)}`;
+            console.log('Emergency redirect to:', window.location.origin + fallbackUrl);
+            window.location.assign(window.location.origin + fallbackUrl);
           }
         }, 4000);
       }
@@ -187,14 +187,15 @@
         document.getElementById('spin-btn').disabled = false;
 
         const email = localStorage.getItem('userEmail') || '';
-        const redirectUrl = `thanks.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
-        console.log(`Redirect URL: ${redirectUrl}`);
+        const redirectUrl = `/thanks.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+        console.log(`Redirect URL (relative): ${redirectUrl}`);
+        console.log(`Redirect URL (absolute): ${window.location.origin + redirectUrl}`);
 
         const attemptRedirect = () => {
-          console.log('Attempting redirect to:', redirectUrl);
+          console.log('Attempting redirect to:', window.location.origin + redirectUrl);
           console.log('Navigator state:', navigator.userAgent);
           try {
-            window.location.assign(redirectUrl);
+            window.location.assign(window.location.origin + redirectUrl);
           } catch (error) {
             console.error('Redirect failed:', error);
             alert('Failed to load the thank you page. Please try again or contact support.');
