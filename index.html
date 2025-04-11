@@ -2,7 +2,8 @@
 <html>
 <head>
   <title>24/1 Pizza - Enter to Spin!</title>
-  <link rel="preload" href="new images/pepperoni-pizza-closeup.webp" as="image">
+  <link rel="preload" href="new_images/pepperoni-pizza-closeup.webp" as="image">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
@@ -16,7 +17,7 @@
       line-height: 1.6;
     }
     .hero {
-      background: url('new images/pizza-box-wings.jpg') center/cover no-repeat;
+      background: url('new_images/pizza-box-wings.jpg') center/cover no-repeat;
       height: 300px;
       position: relative;
       display: flex;
@@ -127,7 +128,7 @@
 </head>
 <body>
   <div class="hero">
-    <img src="new images/241-pizza-logo.png" alt="24/1 Pizza Logo" class="logo">
+    <img src="new_images/241-pizza-logo.png" alt="24/1 Pizza Logo" class="logo">
     <h1>Spin to Win Delicious Prizes! 🍕</h1>
   </div>
   <div class="container">
@@ -135,8 +136,8 @@
     <p>Fill in your details for a chance to win!</p>
     <form id="customer-form">
       <input type="text" id="name" name="name" placeholder="Your Name" required><br>
-      <input type="email" id="email" name="email" placeholder="Email" required><br>
-      <input type="tel" id="phone" name="phone" placeholder="Phone (e.g., 123-456-7890)" required><br>
+      <input type="text" id="email" name="email" placeholder="Email (e.g., user@example.com)" required><br>
+      <input type="tel" id="phone" name="phone" placeholder="Phone (e.g., 1234567890)" required><br>
       <button type="submit" id="submit-btn">Spin!</button>
     </form>
     <div id="error" class="error"></div>
@@ -155,15 +156,18 @@
       const email = document.getElementById('email').value.trim();
       let phone = document.getElementById('phone').value.trim();
 
-      if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
+      console.log('Form submission:', { name, email, phone }); // Debugging
+
+      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+        console.log('Invalid email:', email);
         errorDiv.textContent = 'Please enter a valid email (e.g., user@example.com)';
         return;
       }
 
-      // Normalize phone number: remove non-digits and check length
       phone = phone.replace(/\D/g, '');
       if (!/^\d{10}$/.test(phone)) {
-        errorDiv.textContent = 'Please enter a valid 10-digit phone number (e.g., 123-456-7890)';
+        console.log('Invalid phone:', phone);
+        errorDiv.textContent = 'Please enter a valid 10-digit phone number (e.g., 1234567890)';
         return;
       }
 
@@ -191,6 +195,7 @@
           errorDiv.textContent = result.error || 'An error occurred. Please try again.';
         }
       } catch (error) {
+        console.error('Fetch error:', error);
         errorDiv.textContent = error.message || 'An error occurred. Please try again.';
       } finally {
         submitBtn.disabled = false;
