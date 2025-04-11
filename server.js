@@ -42,6 +42,7 @@ async function initializeExcel() {
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
     { header: 'Date', key: 'date', width: 15 },
+    { header: 'Prize', key: 'prize', width: 20 }, // Added Prize column
   ];
   await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
   console.log('Initialized fresh Excel file:', LOCAL_EXCEL_FILE);
@@ -81,7 +82,6 @@ async function loadFromGoogleDrive() {
       console.log('Rows loaded from file:');
       sheet.eachRow((row, rowNum) => console.log(`Row ${rowNum}:`, row.values));
 
-      // Trim excess rows if row count seems inflated
       let actualLastRow = 0;
       sheet.eachRow((row, rowNum) => {
         if (row.getCell(1).value || row.getCell(2).value || row.getCell(3).value || row.getCell(4).value) {
@@ -106,6 +106,7 @@ async function loadFromGoogleDrive() {
         { header: 'Email', key: 'email', width: 30 },
         { header: 'Phone', key: 'phone', width: 15 },
         { header: 'Date', key: 'date', width: 15 },
+        { header: 'Prize', key: 'prize', width: 20 },
       ];
     }
     return workbook;
@@ -129,12 +130,6 @@ async function uploadToGoogleDrive() {
       console.error('Local Excel file is empty or too small:', LOCAL_EXCEL_FILE);
       throw new Error('Local Excel file is empty.');
     }
-
-    console.log('Reading local file before upload for verification:');
-    const tempWorkbook = new ExcelJS.Workbook();
-    await tempWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-    const tempSheet = tempWorkbook.getWorksheet('Customers');
-    tempSheet.eachRow((row, rowNum) => console.log(`Row ${rowNum}:`, row.values));
 
     console.log('Uploading to Google Drive...');
     const existingFiles = await drive.files.list({
@@ -215,7 +210,6 @@ app.post('/submit', async (req, res) => {
 
     const workbook = await loadFromGoogleDrive();
     const sheet = workbook.getWorksheet('Customers');
-    console.log('Rows before adding:', sheet.rowCount);
 
     const duplicateField = await checkDuplicates(email, phone, workbook);
     if (duplicateField) {
@@ -232,17 +226,16 @@ app.post('/submit', async (req, res) => {
     const phoneStr = String(phone).trim();
     const dateStr = new Date().toISOString().split('T')[0];
 
-    // Ensure column keys are set
     if (!sheet.columns.length) {
       sheet.columns = [
         { header: 'Name', key: 'name', width: 20 },
         { header: 'Email', key: 'email', width: 30 },
         { header: 'Phone', key: 'phone', width: 15 },
         { header: 'Date', key: 'date', width: 15 },
+        { header: 'Prize', key: 'prize', width: 20 },
       ];
     }
 
-    // Add row by explicitly setting cell values
     const newRow = sheet.addRow();
     newRow.getCell(1).value = nameStr;
     newRow.getCell(2).value = emailStr;
@@ -250,22 +243,9 @@ app.post('/submit', async (req, res) => {
     newRow.getCell(4).value = dateStr;
     newRow.commit();
     console.log('Added row values:', [newRow.getCell(1).value, newRow.getCell(2).value, newRow.getCell(3).value, newRow.getCell(4).value]);
-    console.log('Rows after adding:', sheet.rowCount);
 
-    // Write to a temp file first, then move to final location
     await workbook.xlsx.writeFile(TEMP_EXCEL_FILE);
     await fs.rename(TEMP_EXCEL_FILE, LOCAL_EXCEL_FILE);
-    const fileSize = (await fs.stat(LOCAL_EXCEL_FILE)).size;
-    console.log('Local file size after write:', fileSize);
-    if (fileSize < 100) throw new Error('File write failed: size too small');
-
-    // Verify the last row was saved
-    const tempWorkbook = new ExcelJS.Workbook();
-    await tempWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-    const tempSheet = tempWorkbook.getWorksheet('Customers');
-    const lastRow = tempSheet.lastRow;
-    console.log('Verified last row in file:', [lastRow.getCell(1).value, lastRow.getCell(2).value, lastRow.getCell(3).value, lastRow.getCell(4).value]);
-
     await uploadToGoogleDrive();
 
     responseSent = true;
@@ -275,6 +255,54 @@ app.post('/submit', async (req, res) => {
     if (!responseSent) {
       responseSent = true;
       res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
+    }
+  }
+});
+
+app.post('/save-prize', async (req, res) => {
+  let responseSent = false;
+  try {
+    console.log('Save-prize endpoint hit with body:', req.body);
+    const { email, prize } = req.body;
+
+    if (!email || !prize) {
+      console.log('Validation failed: Missing email or prize');
+      responseSent = true;
+      return res.status(400).json({ success: false, error: 'Missing email or prize' });
+    }
+
+    const workbook = await loadFromGoogleDrive();
+    const sheet = workbook.getWorksheet('Customers');
+
+    let found = false;
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // Skip header
+      if (String(row.getCell(2).value).trim().toLowerCase() === email.toLowerCase()) {
+        row.getCell(5).value = prize; // Update Prize column
+        row.commit();
+        found = true;
+      }
+    });
+
+    if (!found) {
+      console.log('Email not found, adding new row:', email);
+      const newRow = sheet.addRow();
+      newRow.getCell(2).value = email;
+      newRow.getCell(5).value = prize;
+      newRow.commit();
+    }
+
+    await workbook.xlsx.writeFile(TEMP_EXCEL_FILE);
+    await fs.rename(TEMP_EXCEL_FILE, LOCAL_EXCEL_FILE);
+    await uploadToGoogleDrive();
+
+    responseSent = true;
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Failed to save prize:', error.stack);
+    if (!responseSent) {
+      responseSent = true;
+      res.status(500).json({ success: false, error: `Failed to save prize: ${error.message}` });
     }
   }
 });
