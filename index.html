@@ -136,7 +136,7 @@
     <form id="customer-form">
       <input type="text" id="name" name="name" placeholder="Your Name" required><br>
       <input type="email" id="email" name="email" placeholder="Email" required><br>
-      <input type="tel" id="phone" name="phone" placeholder="Phone (10 digits)" required><br>
+      <input type="tel" id="phone" name="phone" placeholder="Phone (e.g., 123-456-7890)" required><br>
       <button type="submit" id="submit-btn">Spin!</button>
     </form>
     <div id="error" class="error"></div>
@@ -153,14 +153,17 @@
 
       const name = document.getElementById('name').value.trim();
       const email = document.getElementById('email').value.trim();
-      const phone = document.getElementById('phone').value.trim();
+      let phone = document.getElementById('phone').value.trim();
 
       if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
-        errorDiv.textContent = 'Please enter a valid email';
+        errorDiv.textContent = 'Please enter a valid email (e.g., user@example.com)';
         return;
       }
+
+      // Normalize phone number: remove non-digits and check length
+      phone = phone.replace(/\D/g, '');
       if (!/^\d{10}$/.test(phone)) {
-        errorDiv.textContent = 'Please enter a valid 10-digit phone number';
+        errorDiv.textContent = 'Please enter a valid 10-digit phone number (e.g., 123-456-7890)';
         return;
       }
 
@@ -182,7 +185,7 @@
 
         if (result.success) {
           localStorage.setItem('userEmail', email);
-          const redirectUrl = `wheel.html?name=${encodeURIComponent(name)}`;
+          const redirectUrl = `/wheel.html?name=${encodeURIComponent(name)}`;
           window.location.href = redirectUrl;
         } else {
           errorDiv.textContent = result.error || 'An error occurred. Please try again.';
