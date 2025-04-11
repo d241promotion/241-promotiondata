@@ -108,7 +108,6 @@
       document.getElementById('user-name').textContent = name;
 
       const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
-      const winnablePrizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
       let currentAngle = 0;
       let spinning = false;
 
@@ -119,6 +118,7 @@
       const centerX = 225;
       const centerY = 225;
       const arc = (2 * Math.PI) / prizes.length; // 90 degrees in radians
+      const arcDeg = 360 / prizes.length; // 90 degrees
 
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -154,36 +154,35 @@
         spinning = true;
         document.getElementById('spin-btn').disabled = true;
 
-        const winningIndex = Math.floor(Math.random() * winnablePrizes.length);
-        const winningPrize = winnablePrizes[winningIndex];
-        const segmentIndex = prizes.indexOf(winningPrize);
-
-        const arcDeg = 360 / prizes.length; // 90 degrees per segment
-        const stopAngle = (segmentIndex * arcDeg + arcDeg / 2); // Center of segment
-        const spinAngleStart = 720 + stopAngle;
+        const segmentIndex = Math.floor(Math.random() * prizes.length);
+        const intendedPrize = prizes[segmentIndex];
+        const stopAngle = segmentIndex * arcDeg + arcDeg / 2; // Center of segment
+        const spinAngleStart = 720 + stopAngle; // 2 full spins + stop
 
         currentAngle = spinAngleStart;
 
         console.log(
-          `Selected Prize: ${winningPrize}, Segment Index: ${segmentIndex}, Stop Angle: ${stopAngle}, Total Rotation: ${currentAngle}`
+          `Intended Prize: ${intendedPrize}, Segment Index: ${segmentIndex}, Stop Angle: ${stopAngle}, Total Rotation: ${currentAngle}`
         );
 
         canvas.style.transform = `rotate(${currentAngle}deg)`;
 
         setTimeout(() => {
           const finalAngle = currentAngle % 360;
-          const landedSegment = Math.floor((finalAngle + arcDeg / 2) / arcDeg) % prizes.length;
+          // Adjust for pointer at top (0°), map to segment
+          const adjustedAngle = (finalAngle + 360) % 360;
+          const landedSegment = Math.floor(adjustedAngle / arcDeg);
           const landedPrize = prizes[landedSegment];
 
           console.log(
-            `Wheel stopped at ${finalAngle} degrees, Calculated Landed Segment: ${landedSegment}, Landed Prize: ${landedPrize}, Expected Prize: ${winningPrize}`
+            `Wheel stopped at ${finalAngle} degrees, Adjusted Angle: ${adjustedAngle}, Landed Segment: ${landedSegment}, Landed Prize: ${landedPrize}, Intended Prize: ${intendedPrize}`
           );
 
-          if (landedPrize !== winningPrize) {
-            console.error(`Mismatch detected! Forcing prize to: ${winningPrize}`);
+          if (landedPrize !== intendedPrize) {
+            console.error(`Mismatch! Using landed prize: ${landedPrize} instead of ${intendedPrize}`);
           }
 
-          determinePrize(winningPrize);
+          determinePrize(landedPrize);
         }, 4000);
       }
 
