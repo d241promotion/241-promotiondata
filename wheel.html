@@ -108,12 +108,12 @@
       document.getElementById('user-name').textContent = name;
 
       const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
+      const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
       let currentAngle = 0;
       let spinning = false;
 
       const canvas = document.getElementById('wheel');
       const ctx = canvas.getContext('2d');
-      const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
       const radius = 225;
       const centerX = 225;
       const centerY = 225;
@@ -157,7 +157,7 @@
         const segmentIndex = Math.floor(Math.random() * prizes.length);
         const intendedPrize = prizes[segmentIndex];
         const stopAngle = segmentIndex * arcDeg + arcDeg / 2; // Center of segment
-        const spinAngleStart = 720 + stopAngle; // 2 full spins + stop
+        const spinAngleStart = 720 + stopAngle;
 
         currentAngle = spinAngleStart;
 
@@ -169,8 +169,8 @@
 
         setTimeout(() => {
           const finalAngle = currentAngle % 360;
-          // Adjust for pointer at top (0°), map to segment
-          const adjustedAngle = (finalAngle + 360) % 360;
+          // Adjust for pointer at 0° (top), offset by 90° due to canvas starting at -90°
+          const adjustedAngle = (finalAngle + 90) % 360;
           const landedSegment = Math.floor(adjustedAngle / arcDeg);
           const landedPrize = prizes[landedSegment];
 
@@ -179,8 +179,11 @@
           );
 
           if (landedPrize !== intendedPrize) {
-            console.error(`Mismatch! Using landed prize: ${landedPrize} instead of ${intendedPrize}`);
+            console.warn(`Mismatch detected! Using landed prize: ${landedPrize}`);
           }
+
+          // Temporary alert for testing (remove later if unwanted)
+          // alert(`Landed on: ${landedPrize}`);
 
           determinePrize(landedPrize);
         }, 4000);
@@ -191,7 +194,7 @@
         document.getElementById('spin-btn').disabled = false;
 
         const email = localStorage.getItem('userEmail') || '';
-        const redirectUrl = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+        const redirectUrl = `thanks.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
         console.log(`Redirecting to: ${redirectUrl}`);
 
         if (email) {
