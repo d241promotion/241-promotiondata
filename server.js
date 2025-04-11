@@ -24,19 +24,16 @@ app.use(express.static(__dirname, {
   }
 }));
 
-// Log all incoming requests
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Health check endpoint
 app.get('/health', (req, res) => {
   console.log('Health check requested');
   res.status(200).send('Server is running');
 });
 
-// Catch-all for 404s after static middleware
 app.use((req, res, next) => {
   console.log(`404 Not Found: ${req.method} ${req.url}`);
   res.status(404).send('Not Found');
@@ -212,12 +209,19 @@ app.post('/submit', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
+    if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
+      console.log('Validation failed: Invalid email format:', email);
+      responseSent = true;
+      return res.status(400).json({ success: false, error: 'Invalid email format' });
+    }
+
     if (!/^\d{10}$/.test(phone)) {
-      console.log('Validation failed: Invalid phone number');
+      console.log('Validation failed: Invalid phone number:', phone);
       responseSent = true;
       return res.status(400).json({ success: false, error: 'Invalid phone number (10 digits required)' });
     }
 
+    console.log('Loading workbook for duplicate check');
     const workbook = await loadFromGoogleDrive();
     const sheet = workbook.getWorksheet('Customers');
 
@@ -246,6 +250,7 @@ app.post('/submit', async (req, res) => {
       ];
     }
 
+    console.log('Adding new row to sheet');
     const newRow = sheet.addRow();
     newRow.getCell(1).value = nameStr;
     newRow.getCell(2).value = emailStr;
@@ -254,8 +259,11 @@ app.post('/submit', async (req, res) => {
     newRow.commit();
     console.log('Added row values:', [newRow.getCell(1).value, newRow.getCell(2).value, newRow.getCell(3).value, newRow.getCell(4).value]);
 
+    console.log('Writing to temp file');
     await workbook.xlsx.writeFile(TEMP_EXCEL_FILE);
+    console.log('Renaming temp file to local');
     await fs.rename(TEMP_EXCEL_FILE, LOCAL_EXCEL_FILE);
+    console.log('Uploading to Google Drive');
     await uploadToGoogleDrive();
 
     responseSent = true;
@@ -336,7 +344,6 @@ app.get('/download', async (req, res) => {
   }
 });
 
-// Handle uncaught errors
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error.stack);
 });
@@ -345,7 +352,6 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason.stack || reason);
 });
 
-// Start the server
 (async () => {
   try {
     await loadFromGoogleDrive();
