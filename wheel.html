@@ -123,8 +123,8 @@
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         for (let i = 0; i < prizes.length; i++) {
-          const startAngle = i * arc - Math.PI / 2;
-          const endAngle = (i + 1) * arc - Math.PI / 2;
+          const startAngle = i * arc; // Removed -Math.PI / 2
+          const endAngle = (i + 1) * arc;
 
           ctx.beginPath();
           ctx.moveTo(centerX, centerY);
@@ -156,8 +156,8 @@
 
         const segmentIndex = Math.floor(Math.random() * prizes.length);
         const intendedPrize = prizes[segmentIndex];
-        const stopAngle = segmentIndex * arcDeg + arcDeg / 2;
-        const spinAngleStart = 720 + stopAngle;
+        const stopAngle = segmentIndex * arcDeg + arcDeg / 2; // Center of segment
+        const spinAngleStart = 720 + stopAngle; // Two full rotations plus stop
 
         currentAngle = spinAngleStart;
 
@@ -168,19 +168,9 @@
         canvas.style.transform = `rotate(${currentAngle}deg)`;
 
         setTimeout(() => {
-          const finalAngle = currentAngle % 360;
-          const landedSegment = Math.floor(finalAngle / arcDeg);
-          const landedPrize = prizes[landedSegment];
-
-          console.log(
-            `Wheel stopped at ${finalAngle} degrees, Landed Segment: ${landedSegment}, Landed Prize: ${landedPrize}, Intended Prize: ${intendedPrize}`
-          );
-
-          if (landedPrize !== intendedPrize) {
-            console.warn(`Mismatch detected! Using landed prize: ${landedPrize}`);
-          }
-
-          determinePrize(landedPrize);
+          console.log(`Wheel stopped at prize: ${intendedPrize}`);
+          console.log('Calling determinePrize');
+          determinePrize(intendedPrize);
         }, 4000);
       }
 
@@ -192,6 +182,11 @@
         const email = localStorage.getItem('userEmail') || '';
         const redirectUrl = `thanks.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
         console.log(`Redirect URL: ${redirectUrl}`);
+
+        const attemptRedirect = () => {
+          console.log('Attempting redirect to:', redirectUrl);
+          window.location.assign(redirectUrl);
+        };
 
         if (email) {
           console.log(`Saving prize for email: ${email}`);
@@ -212,19 +207,22 @@
               } else {
                 console.warn('Prize save failed:', data.error);
               }
-              console.log('Redirecting now...');
-              window.location.href = redirectUrl;
+              attemptRedirect();
             })
             .catch((error) => {
               console.error('Fetch error:', error);
-              console.log('Redirecting despite error...');
-              window.location.href = redirectUrl;
+              attemptRedirect();
             });
         } else {
           console.warn('No email found, skipping save');
-          console.log('Redirecting directly...');
-          window.location.href = redirectUrl;
+          attemptRedirect();
         }
+
+        // Fallback redirect after 10 seconds
+        setTimeout(() => {
+          console.log('Fallback redirect triggered');
+          attemptRedirect();
+        }, 10000);
       }
 
       document.getElementById('spin-btn').addEventListener('click', spinWheel);
