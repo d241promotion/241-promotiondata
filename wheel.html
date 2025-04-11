@@ -159,7 +159,7 @@
         const segmentIndex = prizes.indexOf(winningPrize);
 
         const arcDeg = 360 / prizes.length; // 90 degrees per segment
-        const stopAngle = segmentIndex * arcDeg;
+        const stopAngle = segmentIndex * arcDeg + arcDeg / 2; // Center of segment (e.g., 45°, 135°)
         const spinAngleStart = 720 + stopAngle;
 
         currentAngle = spinAngleStart;
