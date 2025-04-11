@@ -123,7 +123,7 @@
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         for (let i = 0; i < prizes.length; i++) {
-          const startAngle = i * arc; // Removed -Math.PI / 2
+          const startAngle = i * arc;
           const endAngle = (i + 1) * arc;
 
           ctx.beginPath();
@@ -156,8 +156,8 @@
 
         const segmentIndex = Math.floor(Math.random() * prizes.length);
         const intendedPrize = prizes[segmentIndex];
-        const stopAngle = segmentIndex * arcDeg + arcDeg / 2; // Center of segment
-        const spinAngleStart = 720 + stopAngle; // Two full rotations plus stop
+        const stopAngle = segmentIndex * arcDeg + arcDeg / 2;
+        const spinAngleStart = 720 + stopAngle;
 
         currentAngle = spinAngleStart;
 
@@ -170,7 +170,14 @@
         setTimeout(() => {
           console.log(`Wheel stopped at prize: ${intendedPrize}`);
           console.log('Calling determinePrize');
-          determinePrize(intendedPrize);
+          try {
+            determinePrize(intendedPrize);
+          } catch (error) {
+            console.error('Error in determinePrize:', error);
+            const fallbackUrl = `thanks.html?prize=${encodeURIComponent(intendedPrize)}&name=${encodeURIComponent(name)}`;
+            console.log('Emergency redirect to:', fallbackUrl);
+            window.location.assign(fallbackUrl);
+          }
         }, 4000);
       }
 
@@ -185,7 +192,13 @@
 
         const attemptRedirect = () => {
           console.log('Attempting redirect to:', redirectUrl);
-          window.location.assign(redirectUrl);
+          console.log('Navigator state:', navigator.userAgent);
+          try {
+            window.location.assign(redirectUrl);
+          } catch (error) {
+            console.error('Redirect failed:', error);
+            alert('Failed to load the thank you page. Please try again or contact support.');
+          }
         };
 
         if (email) {
@@ -218,11 +231,11 @@
           attemptRedirect();
         }
 
-        // Fallback redirect after 10 seconds
+        // Fallback redirect after 5 seconds
         setTimeout(() => {
           console.log('Fallback redirect triggered');
           attemptRedirect();
-        }, 10000);
+        }, 5000);
       }
 
       document.getElementById('spin-btn').addEventListener('click', spinWheel);
