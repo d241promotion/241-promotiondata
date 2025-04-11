@@ -18,7 +18,11 @@ const auth = new google.auth.GoogleAuth({
 const drive = google.drive({ version: 'v3', auth });
 
 app.use(bodyParser.json());
-app.use(express.static(__dirname));
+app.use(express.static(__dirname, {
+  setHeaders: (res, path) => {
+    console.log(`Serving static file: ${path}`);
+  }
+}));
 
 // Log all incoming requests
 app.use((req, res, next) => {
@@ -42,7 +46,7 @@ async function initializeExcel() {
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
     { header: 'Date', key: 'date', width: 15 },
-    { header: 'Prize', key: 'prize', width: 20 }, // Added Prize column
+    { header: 'Prize', key: 'prize', width: 20 },
   ];
   await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
   console.log('Initialized fresh Excel file:', LOCAL_EXCEL_FILE);
@@ -278,7 +282,7 @@ app.post('/save-prize', async (req, res) => {
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return; // Skip header
       if (String(row.getCell(2).value).trim().toLowerCase() === email.toLowerCase()) {
-        row.getCell(5).value = prize; // Update Prize column
+        row.getCell(5).value = prize;
         row.commit();
         found = true;
       }
