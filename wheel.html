@@ -117,8 +117,8 @@
       const radius = 225;
       const centerX = 225;
       const centerY = 225;
-      const arc = (2 * Math.PI) / prizes.length; // 90 degrees in radians
-      const arcDeg = 360 / prizes.length; // 90 degrees
+      const arc = (2 * Math.PI) / prizes.length;
+      const arcDeg = 360 / prizes.length;
 
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -156,7 +156,7 @@
 
         const segmentIndex = Math.floor(Math.random() * prizes.length);
         const intendedPrize = prizes[segmentIndex];
-        const stopAngle = segmentIndex * arcDeg + arcDeg / 2; // Center of segment
+        const stopAngle = segmentIndex * arcDeg + arcDeg / 2;
         const spinAngleStart = 720 + stopAngle;
 
         currentAngle = spinAngleStart;
@@ -185,35 +185,44 @@
       }
 
       function determinePrize(prize) {
+        console.log(`Entering determinePrize with prize: ${prize}`);
         spinning = false;
         document.getElementById('spin-btn').disabled = false;
 
         const email = localStorage.getItem('userEmail') || '';
         const redirectUrl = `thanks.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
-        console.log(`Redirecting to: ${redirectUrl}`);
+        console.log(`Redirect URL: ${redirectUrl}`);
 
         if (email) {
+          console.log(`Saving prize for email: ${email}`);
           fetch('/save-prize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, prize }),
           })
-            .then((response) => response.json())
+            .then((response) => {
+              console.log(`Fetch response status: ${response.status}`);
+              if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+              return response.json();
+            })
             .then((data) => {
+              console.log('Fetch data:', data);
               if (data.success) {
                 console.log(`Prize saved: ${prize}`);
-                window.location.href = redirectUrl;
               } else {
-                console.error('Failed to save prize:', data.error);
-                window.location.href = redirectUrl;
+                console.warn('Prize save failed:', data.error);
               }
+              console.log('Redirecting now...');
+              window.location.href = redirectUrl;
             })
             .catch((error) => {
-              console.error('Failed to save prize:', error);
+              console.error('Fetch error:', error);
+              console.log('Redirecting despite error...');
               window.location.href = redirectUrl;
             });
         } else {
-          console.warn('No email found, skipping prize save');
+          console.warn('No email found, skipping save');
+          console.log('Redirecting directly...');
           window.location.href = redirectUrl;
         }
       }
