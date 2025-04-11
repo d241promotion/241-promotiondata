@@ -154,17 +154,15 @@
         spinning = true;
         document.getElementById('spin-btn').disabled = true;
 
-        // Select a random prize
         const winningIndex = Math.floor(Math.random() * winnablePrizes.length);
         const winningPrize = winnablePrizes[winningIndex];
         const segmentIndex = prizes.indexOf(winningPrize);
 
         const arcDeg = 360 / prizes.length; // 90 degrees per segment
-        // Stop at the start of the segment to align with pointer at top (0 degrees)
         const stopAngle = segmentIndex * arcDeg;
-        const spinAngleStart = 720 + stopAngle; // 2 full spins + stop angle
+        const spinAngleStart = 720 + stopAngle;
 
-        currentAngle = spinAngleStart; // Reset to exact angle for precision
+        currentAngle = spinAngleStart;
 
         console.log(
           `Selected Prize: ${winningPrize}, Segment Index: ${segmentIndex}, Stop Angle: ${stopAngle}, Total Rotation: ${currentAngle}`
@@ -173,10 +171,9 @@
         canvas.style.transform = `rotate(${currentAngle}deg)`;
 
         setTimeout(() => {
-          // Calculate final angle and verify segment
           const finalAngle = currentAngle % 360;
           const landedSegment = Math.floor(finalAngle / arcDeg);
-          const landedPrize = prizes[landedSegment] || prizes[prizes.length - 1]; // Fallback to last prize
+          const landedPrize = prizes[landedSegment] || prizes[prizes.length - 1];
 
           console.log(
             `Wheel stopped at ${finalAngle} degrees, Landed Segment: ${landedSegment}, Landed Prize: ${landedPrize}, Expected Prize: ${winningPrize}`
@@ -185,9 +182,6 @@
           if (landedPrize !== winningPrize) {
             console.error(`Mismatch detected! Adjusting to expected prize: ${winningPrize}`);
           }
-
-          // Show alert to confirm prize before redirect
-          alert(`You won: ${winningPrize}!`);
 
           determinePrize(winningPrize);
         }, 4000);
