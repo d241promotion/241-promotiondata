@@ -44,7 +44,7 @@
       width: 80%;
       max-width: 400px;
       z-index: 0;
-      opacity: 0.3; /* Slight transparency to blend with the container */
+      opacity: 0.3;
     }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(20px); }
@@ -81,29 +81,28 @@
     }
     .share-button {
       color: white;
-      background: #E63946; /* Button background color */
-      padding: 10px 20px; /* Padding to give button-like appearance */
-      border-radius: 8px; /* Rounded corners */
+      background: #E63946;
+      padding: 10px 20px;
+      border-radius: 8px;
       font-size: 1em;
       text-decoration: none;
       font-weight: bold;
-      transition: background 0.3s; /* Smooth background color change on hover */
+      transition: background 0.3s;
     }
     .share-button:hover {
-      background: #F4A261; /* Hover color matching your theme */
+      background: #F4A261;
     }
     @media (max-width: 600px) {
       .container { padding: 20px; }
       h1 { font-size: 2em; }
       h2 { font-size: 1.5em; }
       .pizza-slices { width: 60%; }
-      .share-button { padding: 8px 15px; font-size: 0.9em; } /* Adjust button size for mobile */
+      .share-button { padding: 8px 15px; font-size: 0.9em; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- <img src="new images/pizza-slices.png" alt="Pizza Slices" class="pizza-slices"> -->
     <h1>🎉 Congratulations, <span id="name"></span>!</h1>
     <h2>You won: <span id="prize"></span></h2>
     <p>Show this screen at 241 Pizza to claim your prize!</p>
@@ -117,6 +116,8 @@
     const params = new URLSearchParams(window.location.search);
     const prize = params.get('prize') || 'No Prize';
     const name = params.get('name') || 'Guest';
+
+    console.log(`Received prize: ${prize}, name: ${name}`);
 
     document.getElementById('prize').textContent = prize;
     document.getElementById('name').textContent = name;
