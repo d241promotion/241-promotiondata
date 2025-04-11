@@ -169,21 +169,16 @@
 
         setTimeout(() => {
           const finalAngle = currentAngle % 360;
-          // Adjust for pointer at 0° (top), offset by 90° due to canvas starting at -90°
-          const adjustedAngle = (finalAngle + 90) % 360;
-          const landedSegment = Math.floor(adjustedAngle / arcDeg);
+          const landedSegment = Math.floor(finalAngle / arcDeg);
           const landedPrize = prizes[landedSegment];
 
           console.log(
-            `Wheel stopped at ${finalAngle} degrees, Adjusted Angle: ${adjustedAngle}, Landed Segment: ${landedSegment}, Landed Prize: ${landedPrize}, Intended Prize: ${intendedPrize}`
+            `Wheel stopped at ${finalAngle} degrees, Landed Segment: ${landedSegment}, Landed Prize: ${landedPrize}, Intended Prize: ${intendedPrize}`
           );
 
           if (landedPrize !== intendedPrize) {
             console.warn(`Mismatch detected! Using landed prize: ${landedPrize}`);
           }
-
-          // Temporary alert for testing (remove later if unwanted)
-          // alert(`Landed on: ${landedPrize}`);
 
           determinePrize(landedPrize);
         }, 4000);
