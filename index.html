@@ -2,6 +2,9 @@
 <html>
 <head>
   <title>24/1 Pizza - Enter to Spin!</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <link rel="preload" href="new_images/pepperoni-pizza-closeup.webp" as="image">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
   <style>
@@ -137,7 +140,7 @@
     <form id="customer-form" novalidate>
       <input type="text" id="name" name="name" placeholder="Your Name" required><br>
       <input type="text" id="email" name="email" placeholder="Email (e.g., user@example.com)" required><br>
-      <input type="tel" id="phone" name="phone" placeholder="Phone (e.g., 1234567890)" required><br>
+      <input type="tel" id="phone" name="phone" placeholder="Phone (e.g., 1234567890)" pattern="\d{10}" required><br>
       <button type="submit" id="submit-btn">Spin!</button>
     </form>
     <div id="error" class="error"></div>
@@ -184,6 +187,7 @@
         });
 
         const result = await response.json();
+        console.log('Server response:', result); // Debugging
 
         if (!response.ok) {
           throw new Error(result.error || `Server error: ${response.status}`);
