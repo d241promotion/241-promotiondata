@@ -134,7 +134,7 @@
   <div class="container">
     <h1>Enter to Spin!</h1>
     <p>Fill in your details for a chance to win!</p>
-    <form id="customer-form">
+    <form id="customer-form" novalidate>
       <input type="text" id="name" name="name" placeholder="Your Name" required><br>
       <input type="text" id="email" name="email" placeholder="Email (e.g., user@example.com)" required><br>
       <input type="tel" id="phone" name="phone" placeholder="Phone (e.g., 1234567890)" required><br>
@@ -158,12 +158,14 @@
 
       console.log('Form submission:', { name, email, phone }); // Debugging
 
+      // Validate email
       if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
         console.log('Invalid email:', email);
         errorDiv.textContent = 'Please enter a valid email (e.g., user@example.com)';
         return;
       }
 
+      // Validate phone
       phone = phone.replace(/\D/g, '');
       if (!/^\d{10}$/.test(phone)) {
         console.log('Invalid phone:', phone);
@@ -190,13 +192,16 @@
         if (result.success) {
           localStorage.setItem('userEmail', email);
           const redirectUrl = `/wheel.html?name=${encodeURIComponent(name)}`;
+          console.log('Redirecting to:', redirectUrl);
           window.location.href = redirectUrl;
         } else {
           errorDiv.textContent = result.error || 'An error occurred. Please try again.';
         }
       } catch (error) {
         console.error('Fetch error:', error);
-        errorDiv.textContent = error.message || 'An error occurred. Please try again.';
+        errorDiv.textContent = error.message.includes('Failed to fetch')
+          ? 'Network error. Please check your connection and try again.'
+          : error.message || 'An error occurred. Please try again.';
       } finally {
         submitBtn.disabled = false;
         loadingDiv.style.display = 'none';
