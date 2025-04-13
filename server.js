@@ -34,11 +34,6 @@ app.get('/health', (req, res) => {
   res.status(200).send('Server is running');
 });
 
-app.use((req, res, next) => {
-  console.log(`404 Not Found: ${req.method} ${req.url}`);
-  res.status(404).send('Not Found');
-});
-
 async function initializeExcel() {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Customers', {
@@ -200,7 +195,7 @@ async function checkDuplicates(email, phone, workbook) {
 app.post('/submit', async (req, res) => {
   let responseSent = false;
   try {
-    console.log('Submit endpoint hit with body:', req.body);
+    console.log('Raw request body:', req.body);
     const { name, email, phone } = req.body;
 
     if (!name || !email || !phone) {
@@ -209,12 +204,14 @@ app.post('/submit', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
-    if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
+    console.log('Validating email:', email);
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
       console.log('Validation failed: Invalid email format:', email);
       responseSent = true;
       return res.status(400).json({ success: false, error: 'Invalid email format' });
     }
 
+    console.log('Validating phone:', phone);
     if (!/^\d{10}$/.test(phone)) {
       console.log('Validation failed: Invalid phone number:', phone);
       responseSent = true;
@@ -342,6 +339,11 @@ app.get('/download', async (req, res) => {
     console.error('Error downloading local file:', error.stack);
     res.status(500).send('Error downloading file');
   }
+});
+
+app.use((req, res, next) => {
+  console.log(`404 Not Found: ${req.method} ${req.url}`);
+  res.status(404).send('Not Found');
 });
 
 process.on('uncaughtException', (error) => {
