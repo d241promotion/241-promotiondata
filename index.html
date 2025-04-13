@@ -140,7 +140,7 @@
     <form id="customer-form" novalidate>
       <input type="text" id="name" name="name" placeholder="Your Name" required><br>
       <input type="text" id="email" name="email" placeholder="Email (e.g., user@example.com)" required><br>
-      <input type="tel" id="phone" name="phone" placeholder="Phone (e.g., 1234567890)" pattern="\d{10}" required><br>
+      <input type="tel" id="phone" name="phone" placeholder="Phone (e.g., 123-456-7890)" required><br>
       <button type="submit" id="submit-btn">Spin!</button>
     </form>
     <div id="error" class="error"></div>
@@ -159,7 +159,7 @@
       const email = document.getElementById('email').value.trim();
       let phone = document.getElementById('phone').value.trim();
 
-      console.log('Form submission:', { name, email, phone }); // Debugging
+      console.log('Form submission:', { name, email, phone });
 
       // Validate email
       if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
@@ -168,8 +168,8 @@
         return;
       }
 
-      // Validate phone
-      phone = phone.replace(/\D/g, '');
+      // Clean and validate phone
+      phone = phone.replace(/\D/g, ''); // Remove all non-digits
       if (!/^\d{10}$/.test(phone)) {
         console.log('Invalid phone:', phone);
         errorDiv.textContent = 'Please enter a valid 10-digit phone number (e.g., 1234567890)';
@@ -187,7 +187,7 @@
         });
 
         const result = await response.json();
-        console.log('Server response:', result); // Debugging
+        console.log('Server response:', result);
 
         if (!response.ok) {
           throw new Error(result.error || `Server error: ${response.status}`);
