@@ -130,11 +130,10 @@
 
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Draw segments in reverse order to align with pointer at top (270°)
-        for (let i = prizes.length - 1; i >= 0; i--) {
-          const segmentIndex = prizes.length - 1 - i;
-          const startAngle = segmentIndex * arc;
-          const endAngle = (segmentIndex + 1) * arc;
+        const startOffset = -Math.PI / 2; // Start at 270° (top)
+        for (let i = 0; i < prizes.length; i++) {
+          const startAngle = startOffset + i * arc;
+          const endAngle = startOffset + (i + 1) * arc;
 
           ctx.beginPath();
           ctx.moveTo(centerX, centerY);
@@ -167,8 +166,8 @@
 
         const segmentIndex = Math.floor(Math.random() * prizes.length);
         const selectedPrize = prizes[segmentIndex];
-        // Adjust stopAngle so segmentIndex lands under pointer (270° or -90°)
-        const stopAngle = (segmentIndex * arcDeg + 270) % 360;
+        // Center of selected segment under pointer (270°)
+        const stopAngle = (segmentIndex * arcDeg + arcDeg / 2) % 360;
         const spinAngleStart = 720 + stopAngle; // At least two full spins
 
         currentAngle = spinAngleStart;
@@ -182,7 +181,7 @@
         setTimeout(() => {
           // Calculate final segment based on rotation
           const finalAngle = currentAngle % 360;
-          const visualSegment = Math.floor(((finalAngle + 90) % 360) / arcDeg) % prizes.length;
+          const visualSegment = Math.floor((finalAngle + arcDeg / 2) / arcDeg) % prizes.length;
           const visualPrize = prizes[visualSegment];
 
           console.log(`Wheel stopped: FinalAngle=${finalAngle}, VisualSegment=${visualSegment}, VisualPrize=${visualPrize}, SelectedPrize=${selectedPrize}`);
