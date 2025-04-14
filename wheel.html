@@ -2,8 +2,22 @@
 <html>
 <head>
   <title>Spin the Wheel!</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="preload" href="new images/pizza with wings.jpg" as="image">
   <style>
+    @font-face {
+      font-family: 'Poppins';
+      src: url('fonts/Poppins-Regular.woff2') format('woff2'),
+           url('fonts/Poppins-Regular.woff') format('woff');
+      font-weight: 400;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Poppins';
+      src: url('fonts/Poppins-Bold.woff2') format('woff2'),
+           url('fonts/Poppins-Bold.woff') format('woff');
+      font-weight: 700;
+      font-display: swap;
+    }
     body {
       font-family: 'Poppins', Arial, sans-serif;
       background: url('new images/pizza with wings.jpg') center/cover no-repeat fixed;
@@ -112,6 +126,13 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      if (localStorage.getItem('hasSpun')) {
+        document.getElementById('spin-btn').disabled = true;
+        document.getElementById('prize-display').textContent = 'You’ve already spun!';
+        document.getElementById('prize-display').style.display = 'block';
+        return;
+      }
+
       const params = new URLSearchParams(window.location.search);
       const name = params.get('name') || 'Guest';
       document.getElementById('user-name').textContent = name;
@@ -131,7 +152,7 @@
 
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const startOffset = -Math.PI / 2; // Start at 270° (top)
+        const startOffset = -Math.PI / 2;
         for (let i = 0; i < prizes.length; i++) {
           const startAngle = startOffset + i * arc;
           const endAngle = startOffset + (i + 1) * arc;
@@ -167,9 +188,8 @@
 
         const segmentIndex = Math.floor(Math.random() * prizes.length);
         const selectedPrize = prizes[segmentIndex];
-        // Center the segment under the pointer (at 0°)
         const stopAngle = segmentIndex * arcDeg + arcDeg / 2;
-        const spinAngle = 720 + (360 - stopAngle); // At least two spins
+        const spinAngle = 720 + (360 - stopAngle);
 
         currentAngle = spinAngle;
 
@@ -190,44 +210,40 @@
       function determinePrize(prize) {
         console.log(`determinePrize called with prize: ${prize}`);
         spinning = false;
-        document.getElementById('spin-btn').disabled = false;
+        localStorage.setItem('hasSpun', 'true');
 
         const email = localStorage.getItem('userEmail') || '';
         const redirectUrl = `/thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
         console.log(`Preparing redirect to: ${redirectUrl}`);
 
-        if (!email) {
-          console.warn('No email found in localStorage, redirecting without saving');
-          window.location.assign(redirectUrl);
-          return;
+        // Send prize to server asynchronously
+        if (email) {
+          fetch('/save-prize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, prize }),
+          })
+            .then((response) => {
+              if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+              return response.json();
+            })
+            .then((data) => {
+              console.log('Save-prize data:', data);
+              if (data.success) {
+                console.log(`Prize saved: ${prize}`);
+              } else {
+                console.warn('Prize save failed:', data.error);
+              }
+            })
+            .catch((error) => {
+              console.error('Save-prize fetch error:', error);
+            });
+        } else {
+          console.warn('No email found in localStorage');
         }
 
-        fetch('/save-prize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, prize }),
-        })
-          .then((response) => {
-            console.log(`Save-prize response status: ${response.status}`);
-            if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-            return response.json();
-          })
-          .then((data) => {
-            console.log('Save-prize data:', data);
-            if (data.success) {
-              console.log(`Prize saved: ${prize}`);
-              window.location.assign(redirectUrl);
-            } else {
-              console.warn('Prize save failed:', data.error);
-              alert(`You won: ${prize}! Unable to save prize, but you can still claim it at 241 Pizza.`);
-              window.location.assign(redirectUrl);
-            }
-          })
-          .catch((error) => {
-            console.error('Save-prize fetch error:', error);
-            alert(`You won: ${prize}! Unable to save prize to server, but you can still claim it at 241 Pizza.`);
-            window.location.assign(redirectUrl);
-          });
+        // Redirect immediately
+        window.location.assign(redirectUrl);
       }
 
       document.getElementById('spin-btn').addEventListener('click', spinWheel);
