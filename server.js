@@ -312,5 +312,68 @@ app.post('/save-prize', async (req, res) => {
       const newRow = sheet.addRow();
       newRow.getCell(2).value = email;
       newRow.getCell(5).value = prize;
-      new_.
+      newRow.commit();
+      console.log(`Added new row with prize for email ${email}: ${prize}`);
+    }
 
+    console.log('Writing to temp file');
+    await workbook.xlsx.writeFile(TEMP_EXCEL_FILE);
+    console.log('Renaming temp file to local');
+    await fs.rename(TEMP_EXCEL_FILE, LOCAL_EXCEL_FILE);
+    console.log('Uploading to Google Drive');
+    await uploadToGoogleDrive();
+
+    responseSent = true;
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Failed to save prize:', error.stack);
+    if (!responseSent) {
+      responseSent = true;
+      res.status(500).json({ success: false, error: `Failed to save prize: ${error.message}` });
+    }
+  }
+});
+
+app.get('/download', async (req, res) => {
+  try {
+    const workbook = await loadFromGoogleDrive();
+    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+    const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+    if (!fileExists) {
+      return res.status(404).send('No customer data available yet');
+    }
+
+    res.setHeader('Content-Disposition', 'attachment; filename=customers.xlsx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const fileStream = require('fs').createReadStream(LOCAL_EXCEL_FILE);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error downloading local file:', error.stack);
+    res.status(500).send('Error downloading file');
+  }
+});
+
+app.use((req, res, next) => {
+  console.log(`404 Not Found: ${req.method} ${req.url}`);
+  res.status(404).send('Not Found');
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled rejection at:', promise, 'reason:', reason.stack || reason);
+});
+
+(async () => {
+  try {
+    await loadFromGoogleDrive();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Startup failed:', error.stack);
+    process.exit(1);
+  }
+})();
