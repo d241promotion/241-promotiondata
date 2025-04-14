@@ -286,6 +286,13 @@ app.post('/save-prize', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing email or prize' });
     }
 
+    const validPrizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
+    if (!validPrizes.includes(prize)) {
+      console.log('Validation failed: Invalid prize:', prize);
+      responseSent = true;
+      return res.status(400).json({ success: false, error: 'Invalid prize' });
+    }
+
     const workbook = await loadFromGoogleDrive();
     const sheet = workbook.getWorksheet('Customers');
 
@@ -296,6 +303,7 @@ app.post('/save-prize', async (req, res) => {
         row.getCell(5).value = prize;
         row.commit();
         found = true;
+        console.log(`Updated prize for email ${email}: ${prize}`);
       }
     });
 
@@ -305,6 +313,7 @@ app.post('/save-prize', async (req, res) => {
       newRow.getCell(2).value = email;
       newRow.getCell(5).value = prize;
       newRow.commit();
+      console.log(`Added new row with prize for email ${email}: ${prize}`);
     }
 
     await workbook.xlsx.writeFile(TEMP_EXCEL_FILE);
