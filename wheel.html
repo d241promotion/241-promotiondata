@@ -5,7 +5,7 @@
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
-      background: url('new images/pizza with wings.jpg') center/cover no-repeat fixed;
+      background: url('new_images/pizza with wings.jpg') center/cover no-repeat fixed;
       background-color: #FFF9E5;
       text-align: center;
       padding: 0;
@@ -85,9 +85,16 @@
     #user-name {
       color: #FFD60A;
     }
+    #prize-display {
+      color: #FFD60A;
+      font-size: 1.5em;
+      margin-top: 20px;
+      display: none;
+    }
     @media (max-width: 600px) {
       .wheel-container { width: 300px; height: 300px; }
       h1 { font-size: 2em; }
+      #prize-display { font-size: 1.2em; }
     }
   </style>
 </head>
@@ -99,6 +106,7 @@
       <canvas id="wheel" width="450" height="450"></canvas>
     </div>
     <button id="spin-btn">Spin!</button>
+    <div id="prize-display"></div>
   </div>
 
   <script>
@@ -153,23 +161,26 @@
         if (spinning) return;
         spinning = true;
         document.getElementById('spin-btn').disabled = true;
+        document.getElementById('prize-display').style.display = 'none';
 
         const segmentIndex = Math.floor(Math.random() * prizes.length);
-        const intendedPrize = prizes[segmentIndex];
+        const selectedPrize = prizes[segmentIndex];
         const stopAngle = segmentIndex * arcDeg + arcDeg / 2;
         const spinAngleStart = 720 + stopAngle;
 
         currentAngle = spinAngleStart;
 
         console.log(
-          `Spinning wheel: Prize=${intendedPrize}, Segment=${segmentIndex}, StopAngle=${stopAngle}, TotalRotation=${currentAngle}`
+          `Spinning wheel: Prize=${selectedPrize}, Segment=${segmentIndex}, StopAngle=${stopAngle}, TotalRotation=${currentAngle}`
         );
 
         canvas.style.transform = `rotate(${currentAngle}deg)`;
 
         setTimeout(() => {
-          console.log(`Wheel stopped at prize: ${intendedPrize}`);
-          determinePrize(intendedPrize);
+          console.log(`Wheel stopped at prize: ${selectedPrize}`);
+          document.getElementById('prize-display').textContent = `You won: ${selectedPrize}!`;
+          document.getElementById('prize-display').style.display = 'block';
+          determinePrize(selectedPrize);
         }, 4000);
       }
 
@@ -182,7 +193,7 @@
         const redirectUrl = `/thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
         console.log(`Preparing redirect to: ${redirectUrl}`);
 
-        // Perform redirect immediately
+        // Perform redirect
         const attemptRedirect = () => {
           console.log(`Attempting redirect to: ${window.location.origin}${redirectUrl}`);
           try {
@@ -195,7 +206,7 @@
 
         // Save prize to server (non-blocking)
         if (email) {
-          console.log(`Saving prize for email: ${email}`);
+          console.log(`Saving prize for email: ${email}, prize: ${prize}`);
           fetch('/save-prize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -222,10 +233,10 @@
           console.warn('No email found in localStorage, skipping prize save');
         }
 
-        // Redirect regardless of save-prize outcome
+        // Redirect immediately
         attemptRedirect();
 
-        // Fallback redirect after 3 seconds
+        // Fallback redirect
         setTimeout(() => {
           console.log('Fallback redirect triggered');
           attemptRedirect();
