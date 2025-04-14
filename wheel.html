@@ -5,7 +5,7 @@
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
-      background: url('new_images/pizza with wings.jpg') center/cover no-repeat fixed;
+      background: url('new images/pizza with wings.jpg') center/cover no-repeat fixed;
       background-color: #FFF9E5;
       text-align: center;
       padding: 0;
@@ -165,8 +165,8 @@
 
         const segmentIndex = Math.floor(Math.random() * prizes.length);
         const selectedPrize = prizes[segmentIndex];
-        const stopAngle = segmentIndex * arcDeg + arcDeg / 2;
-        const spinAngleStart = 720 + stopAngle;
+        const stopAngle = (segmentIndex * arcDeg) % 360; // Align with segment center
+        const spinAngleStart = 720 + stopAngle; // At least two full spins
 
         currentAngle = spinAngleStart;
 
@@ -177,10 +177,24 @@
         canvas.style.transform = `rotate(${currentAngle}deg)`;
 
         setTimeout(() => {
-          console.log(`Wheel stopped at prize: ${selectedPrize}`);
+          // Calculate final segment based on rotation
+          const finalAngle = currentAngle % 360;
+          const visualSegment = Math.floor((360 - finalAngle) / arcDeg) % prizes.length;
+          const visualPrize = prizes[visualSegment];
+
+          console.log(`Wheel stopped: FinalAngle=${finalAngle}, VisualSegment=${visualSegment}, VisualPrize=${visualPrize}, SelectedPrize=${selectedPrize}`);
+
+          if (visualPrize !== selectedPrize) {
+            console.warn(`Mismatch detected: VisualPrize=${visualPrize}, SelectedPrize=${selectedPrize}`);
+          }
+
           document.getElementById('prize-display').textContent = `You won: ${selectedPrize}!`;
           document.getElementById('prize-display').style.display = 'block';
-          determinePrize(selectedPrize);
+
+          // Pause to show prize
+          setTimeout(() => {
+            determinePrize(selectedPrize);
+          }, 1000);
         }, 4000);
       }
 
