@@ -166,8 +166,8 @@
 
         const segmentIndex = Math.floor(Math.random() * prizes.length);
         const selectedPrize = prizes[segmentIndex];
-        // Center of selected segment under pointer (270°)
-        const stopAngle = (segmentIndex * arcDeg + arcDeg / 2) % 360;
+        // Align segment's start with pointer at 270°
+        const stopAngle = (segmentIndex * arcDeg) % 360;
         const spinAngleStart = 720 + stopAngle; // At least two full spins
 
         currentAngle = spinAngleStart;
@@ -181,7 +181,7 @@
         setTimeout(() => {
           // Calculate final segment based on rotation
           const finalAngle = currentAngle % 360;
-          const visualSegment = Math.floor((finalAngle + arcDeg / 2) / arcDeg) % prizes.length;
+          const visualSegment = Math.floor(finalAngle / arcDeg) % prizes.length;
           const visualPrize = prizes[visualSegment];
 
           console.log(`Wheel stopped: FinalAngle=${finalAngle}, VisualSegment=${visualSegment}, VisualPrize=${visualPrize}, SelectedPrize=${selectedPrize}`);
@@ -208,17 +208,6 @@
         const email = localStorage.getItem('userEmail') || '';
         const redirectUrl = `/thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
         console.log(`Preparing redirect to: ${redirectUrl}`);
-
-        // Perform redirect
-        const attemptRedirect = () => {
-          console.log(`Attempting redirect to: ${window.location.origin}${redirectUrl}`);
-          try {
-            window.location.assign(window.location.origin + redirectUrl);
-          } catch (error) {
-            console.error('Redirect failed:', error);
-            alert(`You won: ${prize}! Failed to load the thank you page. Please show this message at 241 Pizza.`);
-          }
-        };
 
         // Save prize to server (non-blocking)
         if (email) {
@@ -249,14 +238,9 @@
           console.warn('No email found in localStorage, skipping prize save');
         }
 
-        // Redirect immediately
-        attemptRedirect();
-
-        // Fallback redirect
-        setTimeout(() => {
-          console.log('Fallback redirect triggered');
-          attemptRedirect();
-        }, 3000);
+        // Redirect
+        console.log(`Attempting redirect to: ${window.location.origin}${redirectUrl}`);
+        window.location.assign(window.location.origin + redirectUrl);
       }
 
       document.getElementById('spin-btn').addEventListener('click', spinWheel);
