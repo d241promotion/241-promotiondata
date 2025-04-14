@@ -5,9 +5,22 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="preload" href="new images/pepperoni-pizza-closeup.webp" as="image">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="preload" href="new images/241-pizza-logo.png" as="image">
   <style>
+    @font-face {
+      font-family: 'Poppins';
+      src: url('fonts/Poppins-Regular.woff2') format('woff2'),
+           url('fonts/Poppins-Regular.woff') format('woff');
+      font-weight: 400;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Poppins';
+      src: url('fonts/Poppins-Bold.woff2') format('woff2'),
+           url('fonts/Poppins-Bold.woff') format('woff');
+      font-weight: 700;
+      font-display: swap;
+    }
     body {
       font-family: 'Poppins', Arial, sans-serif;
       background: #976742;
@@ -159,20 +172,16 @@
       const email = document.getElementById('email').value.trim();
       let phone = document.getElementById('phone').value.trim();
 
-      console.log('Form submission:', { name, email, phone });
-
-      // Validate email
+      if (!name) {
+        errorDiv.textContent = 'Please enter your name';
+        return;
+      }
       if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
-        console.log('Invalid email:', email);
         errorDiv.textContent = 'Please enter a valid email (e.g., user@example.com)';
         return;
       }
-
-      // Clean and validate phone
-      phone = phone.replace(/\D/g, ''); // Remove all non-digits
-      console.log('Phone after cleaning:', phone);
+      phone = phone.replace(/[-\s]/g, '');
       if (!/^\d{10}$/.test(phone)) {
-        console.log('Invalid phone:', phone);
         errorDiv.textContent = 'Please enter a valid 10-digit phone number (e.g., 1234567890)';
         return;
       }
@@ -188,25 +197,20 @@
         });
 
         const result = await response.json();
-        console.log('Server response:', result);
-
         if (!response.ok) {
           throw new Error(result.error || `Server error: ${response.status}`);
         }
 
         if (result.success) {
           localStorage.setItem('userEmail', email);
-          const redirectUrl = `/wheel.html?name=${encodeURIComponent(name)}`;
-          console.log('Redirecting to:', redirectUrl);
-          window.location.href = redirectUrl;
+          window.location.assign(`/wheel.html?name=${encodeURIComponent(name)}`);
         } else {
-          errorDiv.textContent = result.error || 'An error occurred. Please try again.';
+          throw new Error(result.error || 'Submission failed');
         }
       } catch (error) {
-        console.error('Fetch error:', error);
-        errorDiv.textContent = error.message.includes('Failed to fetch')
-          ? 'Network error. Please check your connection and try again.'
-          : error.message || 'An error occurred. Please try again.';
+        errorDiv.textContent = error.message.includes('already exist')
+          ? error.message
+          : 'An error occurred. Please try again.';
       } finally {
         submitBtn.disabled = false;
         loadingDiv.style.display = 'none';
