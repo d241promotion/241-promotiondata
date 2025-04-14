@@ -1,14 +1,18 @@
 {
-  "name": "pizza-spin",
+  "name": "pizza-promotion",
   "version": "1.0.0",
+  "description": "241 Pizza Spin-to-Win Promotion",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "body-parser": "^1.20.2",
-    "exceljs": "^4.4.0",
-    "googleapis": "^140.0.1"
+    "express": "^4.17.1",
+    "body-parser": "^1.19.0",
+    "exceljs": "^4.3.0",
+    "googleapis": "^100.0.0",
+    "lockfile": "^1.0.4",
+    "compression": "^1.7.4",
+    "async": "^3.2.4"
   }
 }
