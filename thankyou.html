@@ -5,7 +5,7 @@
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
-      background: url('new images/aigen.jpg') center/cover no-repeat fixed;
+      background: url('new_images/aigen.jpg') center/cover no-repeat fixed;
       background-color: #FFE8D6;
       text-align: center;
       padding: 0;
@@ -113,11 +113,12 @@
   </div>
 
   <script>
+    console.log('thankyou.html loaded');
     const params = new URLSearchParams(window.location.search);
     const prize = params.get('prize') || 'No Prize';
     const name = params.get('name') || 'Guest';
 
-    console.log(`Received prize: ${prize}, name: ${name}`);
+    console.log(`Received query params: prize=${prize}, name=${name}`);
 
     document.getElementById('prize').textContent = prize;
     document.getElementById('name').textContent = name;
