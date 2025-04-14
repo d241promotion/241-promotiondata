@@ -2,8 +2,22 @@
 <html>
 <head>
   <title>You Won!</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="preload" href="new images/aigen.jpg" as="image">
   <style>
+    @font-face {
+      font-family: 'Poppins';
+      src: url('fonts/Poppins-Regular.woff2') format('woff2'),
+           url('fonts/Poppins-Regular.woff') format('woff');
+      font-weight: 400;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Poppins';
+      src: url('fonts/Poppins-Bold.woff2') format('woff2'),
+           url('fonts/Poppins-Bold.woff') format('woff');
+      font-weight: 700;
+      font-display: swap;
+    }
     body {
       font-family: 'Poppins', Arial, sans-serif;
       background: url('new images/aigen.jpg') center/cover no-repeat fixed;
@@ -36,16 +50,6 @@
       position: relative;
       z-index: 1;
       animation: fadeIn 1s ease-in;
-    }
-    .pizza-slices {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 80%;
-      max-width: 400px;
-      z-index: 0;
-      opacity: 0.3;
     }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(20px); }
@@ -97,7 +101,6 @@
       .container { padding: 20px; }
       h1 { font-size: 2em; }
       h2 { font-size: 1.5em; }
-      .pizza-slices { width: 60%; }
       .share-button { padding: 8px 15px; font-size: 0.9em; }
     }
   </style>
@@ -123,7 +126,6 @@
 
     console.log(`Received query params: prize=${prize}, name=${name}`);
 
-    // Validate prize
     if (!validPrizes.includes(prize)) {
       console.warn(`Invalid prize received: ${prize}, defaulting to 'No Prize'`);
       prize = 'No Prize';
