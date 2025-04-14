@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Spin the Wheel!</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
@@ -166,11 +167,11 @@
 
         const segmentIndex = Math.floor(Math.random() * prizes.length);
         const selectedPrize = prizes[segmentIndex];
-        // Align segment's start with pointer at 270°
-        const stopAngle = (segmentIndex * arcDeg) % 360;
-        const spinAngleStart = 720 + stopAngle; // At least two full spins
+        // Center the segment under the pointer (at 0°)
+        const stopAngle = segmentIndex * arcDeg + arcDeg / 2;
+        const spinAngle = 720 + (360 - stopAngle); // At least two spins
 
-        currentAngle = spinAngleStart;
+        currentAngle = spinAngle;
 
         console.log(
           `Spinning wheel: Prize=${selectedPrize}, Segment=${segmentIndex}, StopAngle=${stopAngle}, TotalRotation=${currentAngle}`
@@ -179,24 +180,10 @@
         canvas.style.transform = `rotate(${currentAngle}deg)`;
 
         setTimeout(() => {
-          // Calculate final segment based on rotation
-          const finalAngle = currentAngle % 360;
-          const visualSegment = Math.floor(finalAngle / arcDeg) % prizes.length;
-          const visualPrize = prizes[visualSegment];
-
-          console.log(`Wheel stopped: FinalAngle=${finalAngle}, VisualSegment=${visualSegment}, VisualPrize=${visualPrize}, SelectedPrize=${selectedPrize}`);
-
-          if (visualPrize !== selectedPrize) {
-            console.warn(`Mismatch detected: VisualPrize=${visualPrize}, SelectedPrize=${selectedPrize}`);
-          }
-
           document.getElementById('prize-display').textContent = `You won: ${selectedPrize}!`;
           document.getElementById('prize-display').style.display = 'block';
 
-          // Pause to show prize
-          setTimeout(() => {
-            determinePrize(selectedPrize);
-          }, 1000);
+          determinePrize(selectedPrize);
         }, 4000);
       }
 
@@ -209,38 +196,38 @@
         const redirectUrl = `/thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
         console.log(`Preparing redirect to: ${redirectUrl}`);
 
-        // Save prize to server (non-blocking)
-        if (email) {
-          console.log(`Saving prize for email: ${email}, prize: ${prize}`);
-          fetch('/save-prize', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, prize }),
-          })
-            .then((response) => {
-              console.log(`Save-prize response status: ${response.status}`);
-              if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-              return response.json();
-            })
-            .then((data) => {
-              console.log('Save-prize data:', data);
-              if (data.success) {
-                console.log(`Prize saved: ${prize}`);
-              } else {
-                console.warn('Prize save failed:', data.error);
-              }
-            })
-            .catch((error) => {
-              console.error('Save-prize fetch error:', error);
-              alert(`You won: ${prize}! Unable to save prize to server, but you can still claim it at 241 Pizza.`);
-            });
-        } else {
-          console.warn('No email found in localStorage, skipping prize save');
+        if (!email) {
+          console.warn('No email found in localStorage, redirecting without saving');
+          window.location.assign(redirectUrl);
+          return;
         }
 
-        // Redirect
-        console.log(`Attempting redirect to: ${window.location.origin}${redirectUrl}`);
-        window.location.assign(window.location.origin + redirectUrl);
+        fetch('/save-prize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, prize }),
+        })
+          .then((response) => {
+            console.log(`Save-prize response status: ${response.status}`);
+            if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+            return response.json();
+          })
+          .then((data) => {
+            console.log('Save-prize data:', data);
+            if (data.success) {
+              console.log(`Prize saved: ${prize}`);
+              window.location.assign(redirectUrl);
+            } else {
+              console.warn('Prize save failed:', data.error);
+              alert(`You won: ${prize}! Unable to save prize, but you can still claim it at 241 Pizza.`);
+              window.location.assign(redirectUrl);
+            }
+          })
+          .catch((error) => {
+            console.error('Save-prize fetch error:', error);
+            alert(`You won: ${prize}! Unable to save prize to server, but you can still claim it at 241 Pizza.`);
+            window.location.assign(redirectUrl);
+          });
       }
 
       document.getElementById('spin-btn').addEventListener('click', spinWheel);
