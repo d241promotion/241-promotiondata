@@ -21,9 +21,9 @@
       height: 0;
       border-left: 25px solid transparent;
       border-right: 25px solid transparent;
-      border-top: 50px solid red; /* Points downward */
+      border-top: 50px solid red;
       position: absolute;
-      top: -25px; /* Adjust to place it slightly above the wheel */
+      top: -25px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 2;
@@ -71,7 +71,6 @@
 
     const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
     const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
-
     const arc = 360 / prizes.length;
 
     function drawWheel() {
@@ -89,7 +88,7 @@
         ctx.fillStyle = colors[i];
         ctx.fill();
 
-        // Text
+        // Draw prize label
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(angle + arcRad / 2);
@@ -104,22 +103,30 @@
     drawWheel();
 
     document.getElementById('spin-btn').addEventListener('click', () => {
-      const spins = 5; // Full rotations for visual effect
-      const randomSlice = Math.floor(Math.random() * prizes.length);
-      const sliceAngle = 360 / prizes.length;
-      const rotation = spins * 360 + randomSlice * sliceAngle + sliceAngle / 2;
+      const totalSpins = 5;
+      const randomRotation = Math.floor(Math.random() * 360);
+      const totalRotation = totalSpins * 360 + randomRotation;
 
-      canvas.style.transform = `rotate(${rotation}deg)`;
+      canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        const finalAngle = (rotation % 360 + 360) % 360;
-        const prizeIndex = Math.floor((360 - finalAngle + arc / 2) % 360 / arc);
+        // Normalize rotation angle
+        const finalAngle = totalRotation % 360;
+
+        // Adjust because wheel starts at -90 degrees
+        const adjustedAngle = (finalAngle + 90) % 360;
+
+        // Calculate which segment the pointer lands on
+        const prizeIndex = Math.floor(adjustedAngle / arc);
         const prize = prizes[prizeIndex];
 
+        // Show prize text
         document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
 
-        // Optional: Redirect after showing prize
-        // window.location.href = `/thankyou.html?prize=${encodeURIComponent(prize)}`;
+        // Redirect with correct prize in URL
+        setTimeout(() => {
+          window.location.href = `/thankyou.html?prize=${encodeURIComponent(prize)}`;
+        }, 1500);
       }, 4000);
     });
   </script>
