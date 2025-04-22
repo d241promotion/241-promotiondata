@@ -87,18 +87,11 @@
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
       const radius = canvas.width / 2;
-      const arc = 2 * Math.PI / prizes.length;
-
-      const prizeAngles = {
-        'Free Dip': 2025,
-        'Free Cookie': 1935,
-        'Free Can': 1845,
-        'Free Chipsbag': 2115
-      };
+      const arc = 2 * Math.PI / prizes.length; // 90 degrees in radians
 
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const startOffset = -Math.PI / 2;
+        const startOffset = -Math.PI / 2; // Start at top
         for (let i = 0; i < prizes.length; i++) {
           const startAngle = startOffset + i * arc;
           const endAngle = startOffset + (i + 1) * arc;
@@ -130,11 +123,17 @@
         document.getElementById('prize-display').style.display = 'none';
         document.getElementById('spin-btn').disabled = true;
 
-        const prizeList = Object.keys(prizeAngles);
-        const prize = prizeList[Math.floor(Math.random() * prizeList.length)];
-        const angle = prizeAngles[prize];
+        // Select a random prize index
+        const prizeIndex = Math.floor(Math.random() * prizes.length);
+        const prize = prizes[prizeIndex];
 
-        canvas.style.transform = `rotate(${angle}deg)`;
+        // Calculate angle to land at the center of the prize segment
+        const segmentAngle = (360 / prizes.length); // 90 degrees
+        const centerSegmentAngle = (prizeIndex * segmentAngle) + (segmentAngle / 2); // e.g., 45, 135, 225, 315
+        const fullRotations = 1080; // 3 full spins
+        const finalAngle = fullRotations + centerSegmentAngle;
+
+        canvas.style.transform = `rotate(${finalAngle}deg)`;
 
         setTimeout(() => {
           document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
