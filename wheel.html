@@ -165,17 +165,13 @@
         document.getElementById('prize-display').style.display = 'none';
 
         const segmentIndex = Math.floor(Math.random() * prizes.length);
-        const stopAngle = (segmentIndex * arcDeg) + (arcDeg / 2);  // center of segment
-        const spinAngleStart = 720 + stopAngle;
+        const stopAngle = 360 * 5 + (360 - (segmentIndex * arcDeg + arcDeg / 2));  // precise alignment
 
-        currentAngle = spinAngleStart;
-        canvas.style.transform = `rotate(${currentAngle}deg)`;
+        currentAngle = stopAngle;
+        canvas.style.transform = `rotate(${stopAngle}deg)`;
 
         setTimeout(() => {
-          const finalAngle = (360 - (currentAngle % 360) + arcDeg / 2) % 360;
-          const visualSegment = Math.floor(finalAngle / arcDeg) % prizes.length;
-          const visualPrize = prizes[visualSegment];
-
+          const visualPrize = prizes[segmentIndex];
           document.getElementById('prize-display').textContent = `You won: ${visualPrize}!`;
           document.getElementById('prize-display').style.display = 'block';
 
