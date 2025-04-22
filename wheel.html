@@ -69,14 +69,14 @@
     const centerY = canvas.height / 2;
     const radius = centerX;
 
-    // ✅ Final correct prize order (matches wheel drawing and pointer alignment)
-    const prizes = ['Free Can', 'Free Cookie', 'Free Dip', 'Free Chipsbag'];
+    // ✅ Clockwise drawing starting from right (0°)
+    const prizes = ['Free Dip', 'Free Chipsbag', 'Free Can', 'Free Cookie'];
     const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
     const arc = 360 / prizes.length;
 
     function drawWheel() {
       const arcRad = 2 * Math.PI / prizes.length;
-      const startAngle = -Math.PI / 2;
+      const startAngle = 0; // ✅ Start at 0° (right side)
 
       for (let i = 0; i < prizes.length; i++) {
         const angle = startAngle + i * arcRad;
@@ -89,7 +89,7 @@
         ctx.fillStyle = colors[i];
         ctx.fill();
 
-        // Draw prize label
+        // Draw prize text
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(angle + arcRad / 2);
@@ -113,8 +113,9 @@
       setTimeout(() => {
         const finalAngle = totalRotation % 360;
 
-        // Adjust for -90° start angle (top)
+        // ✅ Adjust for start angle 0°, pointer is at top (90°)
         const offsetFromTop = (finalAngle + 90) % 360;
+
         const prizeIndex = Math.floor(offsetFromTop / arc);
         const prize = prizes[prizeIndex];
 
