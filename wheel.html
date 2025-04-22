@@ -88,7 +88,7 @@
         ctx.fillStyle = colors[i];
         ctx.fill();
 
-        // Draw prize label
+        // Draw prize text
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(angle + arcRad / 2);
@@ -110,20 +110,14 @@
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        // Normalize rotation angle
-        const finalAngle = totalRotation % 360;
-
-        // Adjust because wheel starts at -90 degrees
+        const finalAngle = (totalRotation % 360 + 360) % 360;
         const adjustedAngle = (finalAngle + 90) % 360;
-
-        // Calculate which segment the pointer lands on
-        const prizeIndex = Math.floor(adjustedAngle / arc);
+        const prizeIndex = Math.round(adjustedAngle / arc) % prizes.length;
         const prize = prizes[prizeIndex];
 
-        // Show prize text
         document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
 
-        // Redirect with correct prize in URL
+        // Redirect to thank you page
         setTimeout(() => {
           window.location.href = `/thankyou.html?prize=${encodeURIComponent(prize)}`;
         }, 1500);
