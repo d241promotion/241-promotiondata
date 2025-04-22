@@ -2,96 +2,49 @@
 <html>
 <head>
   <title>Spin the Wheel!</title>
-  <link rel="preload" href="new images/pizza with wings.jpg" as="image">
   <style>
-    @font-face {
-      font-family: 'Poppins';
-      src: url('fonts/Poppins-Regular.woff2') format('woff2'),
-           url('fonts/Poppins-Regular.woff') format('woff');
-      font-weight: 400;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: 'Poppins';
-      src: url('fonts/Poppins-Bold.woff2') format('woff2'),
-           url('fonts/Poppins-Bold.woff') format('woff');
-      font-weight: 700;
-      font-display: swap;
-    }
     body {
       font-family: 'Poppins', Arial, sans-serif;
-      background: url('new images/pizza with wings.jpg') center/cover no-repeat fixed;
+      background: url('new-images/pizza-with-wings.jpg') center/cover no-repeat fixed;
       background-color: #FFF9E5;
       text-align: center;
       padding: 0;
       margin: 0;
+      position: relative;
+      overflow-x: hidden;
       color: #333;
       line-height: 1.6;
+    }
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
     }
     .container {
       max-width: 600px;
       margin: 20px auto;
+      background: transparent;
       padding: 30px;
-      display: block !important;
-      visibility: visible !important;
-      overflow: visible !important;
+      position: relative;
       z-index: 1;
     }
     .wheel-container {
+      position: relative;
       width: 450px;
       height: 450px;
-      margin: 20px auto;
-      display: block !important;
-      visibility: visible !important;
-      overflow: visible !important;
-      z-index: 2;
+      margin: 40px auto;
     }
     #wheel {
-      width: 450px;
-      height: 450px;
-      display: block !important;
-      visibility: visible !important;
-      overflow: visible !important;
-      z-index: 3;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
       transition: transform 4s ease-out;
-    }
-    .segment {
-      width: 225px;
-      height: 225px;
-      float: left;
-      display: block !important;
-      visibility: visible !important;
-      border: 2px solid #fff;
-      box-sizing: border-box;
-      overflow: visible !important;
-      z-index: 3;
-    }
-    .segment:nth-child(1) {
-      border-top-left-radius: 225px;
-      background-color: #FF70A6;
-    }
-    .segment:nth-child(2) {
-      border-top-right-radius: 225px;
-      background-color: #FFD60A;
-    }
-    .segment:nth-child(3) {
-      border-bottom-left-radius: 225px;
-      background-color: #00F5D4;
-    }
-    .segment:nth-child(4) {
-      border-bottom-right-radius: 225px;
-      background-color: #FF9F1C;
-    }
-    .segment span {
-      display: block;
-      margin: 50px auto;
-      color: #fff;
-      font-size: 1em;
-      font-weight: bold;
-      text-align: center;
-      width: 100px;
-      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-      z-index: 4;
     }
     .pointer {
       width: 0;
@@ -100,10 +53,10 @@
       border-right: 30px solid transparent;
       border-top: 60px solid #E63946;
       position: absolute;
-      top: -30px;
+      top: 0;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 5;
+      z-index: 1;
     }
     button {
       background: #E63946;
@@ -115,7 +68,6 @@
       font-size: 1.3em;
       font-weight: bold;
       transition: background 0.3s;
-      z-index: 1;
     }
     button:hover {
       background: #F4A261;
@@ -129,7 +81,6 @@
       font-weight: bold;
       font-size: 2.8em;
       text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-      z-index: 1;
     }
     #user-name {
       color: #FFD60A;
@@ -139,57 +90,11 @@
       font-size: 1.5em;
       margin-top: 20px;
       display: none;
-      z-index: 1;
-    }
-    #wheel-error {
-      color: #E63946;
-      font-size: 1.2em;
-      margin-top: 20px;
-      display: block;
-      z-index: 1;
     }
     @media (max-width: 600px) {
-      .wheel-container {
-        width: 300px;
-        height: 300px;
-      }
-      #wheel {
-        width: 300px;
-        height: 300px;
-      }
-      .segment {
-        width: 150px;
-        height: 150px;
-      }
-      .segment:nth-child(1) {
-        border-top-left-radius: 150px;
-      }
-      .segment:nth-child(2) {
-        border-top-right-radius: 150px;
-      }
-      .segment:nth-child(3) {
-        border-bottom-left-radius: 150px;
-      }
-      .segment:nth-child(4) {
-        border-bottom-right-radius: 150px;
-      }
-      .segment span {
-        margin: 30px auto;
-        font-size: 0.8em;
-        width: 80px;
-      }
-      .pointer {
-        border-left: 20px solid transparent;
-        border-right: 20px solid transparent;
-        border-top: 40px solid #E63946;
-        top: -20px;
-      }
-      h1 {
-        font-size: 2em;
-      }
-      #prize-display {
-        font-size: 1.2em;
-      }
+      .wheel-container { width: 300px; height: 300px; }
+      h1 { font-size: 2em; }
+      #prize-display { font-size: 1.2em; }
     }
   </style>
 </head>
@@ -198,170 +103,111 @@
     <h1>🍕 Let’s Spin, <span id="user-name">Guest</span>!</h1>
     <div class="wheel-container">
       <div class="pointer"></div>
-      <div id="wheel"></div>
+      <canvas id="wheel" width="450" height="450"></canvas>
     </div>
     <button id="spin-btn">Spin!</button>
     <div id="prize-display"></div>
-    <div id="wheel-error">Wheel loading...</div>
   </div>
 
   <script>
-    console.log('wheel.html script started');
-    try {
-      document.addEventListener('DOMContentLoaded', () => {
-        console.log('DOMContentLoaded fired');
-        const wheel = document.getElementById('wheel');
-        const errorDiv = document.getElementById('wheel-error');
-        const container = document.querySelector('.container');
-        const wheelContainer = document.querySelector('.wheel-container');
+    document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const name = params.get('name') || 'Guest';
+      document.getElementById('user-name').textContent = name;
 
-        if (!wheel || !container || !wheelContainer) {
-          console.error('Required elements missing:', { wheel: !!wheel, container: !!container, wheelContainer: !!wheelContainer });
-          errorDiv.textContent = 'Error: Wheel could not be loaded. Please refresh.';
-          errorDiv.style.display = 'block';
-          return;
+      const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
+      const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
+      let currentAngle = 0;
+      let spinning = false;
+
+      const canvas = document.getElementById('wheel');
+      const ctx = canvas.getContext('2d');
+      const radius = 225;
+      const centerX = 225;
+      const centerY = 225;
+      const arc = (2 * Math.PI) / prizes.length;
+      const arcDeg = 360 / prizes.length;
+
+      function drawWheel() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const startOffset = -Math.PI / 2;
+        for (let i = 0; i < prizes.length; i++) {
+          const startAngle = startOffset + i * arc;
+          const endAngle = startOffset + (i + 1) * arc;
+
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+          ctx.closePath();
+          ctx.fillStyle = colors[i];
+          ctx.fill();
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+
+          ctx.save();
+          ctx.translate(centerX, centerY);
+          ctx.rotate(startAngle + arc / 2);
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#333';
+          ctx.font = 'bold 18px Poppins';
+          ctx.fillText(prizes[i], 120, 0);
+          ctx.restore();
         }
+      }
 
-        console.log('Wheel container initialized');
-        console.log('Container styles:', getComputedStyle(container).display, getComputedStyle(container).visibility);
-        console.log('Wheel container styles:', getComputedStyle(wheelContainer).display, getComputedStyle(wheelContainer).visibility);
+      drawWheel();
 
-        if (localStorage.getItem('hasSpun')) {
-          console.log('User has already spun');
-          document.getElementById('spin-btn').disabled = true;
-          document.getElementById('prize-display').textContent = 'You’ve already spun!';
-          document.getElementById('prize-display').style.display = 'block';
-          errorDiv.style.display = 'none';
-          return;
-        }
+      function spinWheel() {
+        if (spinning) return;
+        spinning = true;
+        document.getElementById('spin-btn').disabled = true;
+        document.getElementById('prize-display').style.display = 'none';
 
-        const params = new URLSearchParams(window.location.search);
-        const name = params.get('name') || 'Guest';
-        document.getElementById('user-name').textContent = name;
+        const segmentIndex = Math.floor(Math.random() * prizes.length);
+        const selectedPrize = prizes[segmentIndex];
+        const stopAngle = (segmentIndex * arcDeg) % 360;
+        const spinAngleStart = 720 + stopAngle;
 
-        const prizes = ['Free Cookie', 'Free Dip', 'Free Can', 'Free Chipsbag'];
-        let currentAngle = 0;
-        let spinning = false;
-        const segmentAngle = 360 / prizes.length;
-
-        function createWheel() {
-          console.log('Creating wheel segments');
-          try {
-            wheel.innerHTML = '';
-            prizes.forEach((prize, i) => {
-              const segment = document.createElement('div');
-              segment.className = 'segment';
-              segment.innerHTML = `<span>${prize}</span>`;
-              wheel.appendChild(segment);
-              console.log(`Added segment ${i}: ${prize}`);
-            });
-            errorDiv.style.display = 'none';
-            console.log('Wheel created successfully');
-          } catch (error) {
-            console.error('Error creating wheel:', error);
-            errorDiv.textContent = 'Error rendering wheel. Please refresh.';
-            errorDiv.style.display = 'block';
-          }
-        }
-
-        createWheel();
-
-        function spinWheel() {
-          if (spinning) {
-            console.log('Spin already in progress');
-            return;
-          }
-          spinning = true;
-          console.log('Starting spin');
-          document.getElementById('spin-btn').disabled = true;
-          document.getElementById('prize-display').style.display = 'none';
-
-          const segmentIndex = Math.floor(Math.random() * prizes.length);
-          const selectedPrize = prizes[segmentIndex];
-          const stopAngle = segmentIndex * segmentAngle + segmentAngle / 2;
-          const spinAngle = 720 + (360 - stopAngle);
-
-          currentAngle = spinAngle;
-
-          console.log(
-            `Spinning: Prize=${selectedPrize}, Segment=${segmentIndex}, StopAngle=${stopAngle}, Rotation=${currentAngle}`
-          );
-
-          wheel.style.transform = `rotate(${currentAngle}deg)`;
-
-          setTimeout(() => {
-            console.log('Spin animation complete');
-            wheel.style.transition = 'none';
-            document.getElementById('prize-display').textContent = `You won: ${selectedPrize}!`;
-            document.getElementById('prize-display').style.display = 'block';
-            determinePrize(selectedPrize);
-          }, 4000);
-        }
-
-        function determinePrize(prize) {
-          console.log(`determinePrize: ${prize}`);
-          spinning = false;
-          localStorage.setItem('hasSpun', 'true');
-          localStorage.setItem('lastPrize', prize);
-
-          const email = localStorage.getItem('userEmail') || '';
-          const redirectUrl = `/thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
-          console.log(`Redirecting to: ${redirectUrl}`);
-
-          if (email) {
-            fetch('/save-prize', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email, prize }),
-            })
-              .then((response) => {
-                console.log(`Save-prize status: ${response.status}`);
-                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-                return response.json();
-              })
-              .then((data) => {
-                if (data.success) {
-                  console.log(`Prize saved: ${prize}`);
-                } else {
-                  console.warn('Prize save failed:', data.error);
-                }
-              })
-              .catch((error) => {
-                console.error('Save-prize error:', error);
-              });
-          } else {
-            console.warn('No email in localStorage');
-          }
-
-          console.log('Initiating redirect');
-          window.location.assign(redirectUrl);
-        }
-
-        document.getElementById('spin-btn').addEventListener('click', () => {
-          console.log('Spin button clicked');
-          spinWheel();
-        });
+        currentAngle = spinAngleStart;
+        canvas.style.transform = `rotate(${currentAngle}deg)`;
 
         setTimeout(() => {
-          const segments = wheel.querySelectorAll('.segment');
-          if (segments.length === 0) {
-            console.warn('No segments visible');
-            errorDiv.textContent = 'Wheel is not visible. Please refresh.';
-            errorDiv.style.display = 'block';
-          } else {
-            segments.forEach((seg, i) => {
-              console.log(`Segment ${i} dimensions:`, seg.offsetWidth, seg.offsetHeight);
-            });
-            console.log('Wheel segments visible:', segments.length);
-            errorDiv.style.display = 'none';
-          }
-        }, 200);
-      });
-    } catch (error) {
-      console.error('Script error:', error);
-      document.getElementById('wheel-error').textContent = 'Error loading wheel. Please refresh.';
-      document.getElementById('wheel-error').style.display = 'block';
-    }
+          const finalAngle = currentAngle % 360;
+          const visualSegment = Math.floor(finalAngle / arcDeg) % prizes.length;
+          const visualPrize = prizes[visualSegment];
+
+          document.getElementById('prize-display').textContent = `You won: ${visualPrize}!`;
+          document.getElementById('prize-display').style.display = 'block';
+
+          setTimeout(() => {
+            determinePrize(visualPrize);
+          }, 1000);
+        }, 4000);
+      }
+
+      function determinePrize(prize) {
+        spinning = false;
+        document.getElementById('spin-btn').disabled = false;
+
+        const email = localStorage.getItem('userEmail') || '';
+        const redirectUrl = `/thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+
+        if (email) {
+          fetch('/save-prize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, prize }),
+          }).catch(() => {
+            alert(`You won: ${prize}! Unable to save prize, but show this screen at 241 Pizza.`);
+          });
+        }
+
+        window.location.assign(window.location.origin + redirectUrl);
+      }
+
+      document.getElementById('spin-btn').addEventListener('click', spinWheel);
+    });
   </script>
 </body>
 </html>
