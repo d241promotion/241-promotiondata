@@ -75,7 +75,7 @@
 
     function drawWheel() {
       const arcRad = 2 * Math.PI / prizes.length;
-      const startAngle = -Math.PI / 2; // Start at top
+      const startAngle = -Math.PI / 2; // Start drawing at top
 
       for (let i = 0; i < prizes.length; i++) {
         const angle = startAngle + i * arcRad;
@@ -109,15 +109,18 @@
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        // 🧠 Normalize rotation
         const normalizedRotation = totalRotation % 360;
 
-        // 🎯 Adjust for drawing start at -90° (top)
-        const angleAtTop = (360 - normalizedRotation + 90) % 360;
+        // ✅ Adjusted math to align with canvas drawing and pointer
+        const angleAtPointer = (normalizedRotation + 90) % 360;
 
-        // ✅ Find the prize index
-        const prizeIndex = Math.floor(angleAtTop / arc);
+        const prizeIndex = Math.floor(angleAtPointer / arc);
         const prize = prizes[prizeIndex];
+
+        console.log("Rotation:", normalizedRotation);
+        console.log("Angle at pointer:", angleAtPointer);
+        console.log("Prize Index:", prizeIndex);
+        console.log("Prize:", prize);
 
         document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
 
