@@ -110,9 +110,12 @@
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        const finalAngle = (totalRotation % 360 + 360) % 360;
-        const adjustedAngle = (finalAngle + 90) % 360;
-        const prizeIndex = Math.round(adjustedAngle / arc) % prizes.length;
+        const finalAngle = totalRotation % 360;
+
+        // Offset for start angle at -90 degrees
+        const offsetFromTop = (finalAngle + 270) % 360;
+
+        const prizeIndex = Math.floor(offsetFromTop / arc);
         const prize = prizes[prizeIndex];
 
         document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
