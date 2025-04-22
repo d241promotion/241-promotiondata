@@ -117,9 +117,6 @@
 
       const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
       const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
-      let currentAngle = 0;
-      let spinning = false;
-
       const canvas = document.getElementById('wheel');
       const ctx = canvas.getContext('2d');
       const radius = 225;
@@ -127,6 +124,9 @@
       const centerY = 225;
       const arc = (2 * Math.PI) / prizes.length;
       const arcDeg = 360 / prizes.length;
+
+      let spinning = false;
+      let currentRotation = 0;
 
       function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -164,19 +164,23 @@
         document.getElementById('spin-btn').disabled = true;
         document.getElementById('prize-display').style.display = 'none';
 
-        const segmentIndex = Math.floor(Math.random() * prizes.length);
-        const stopAngle = 360 * 5 + (360 - (segmentIndex * arcDeg + arcDeg / 2));  // precise alignment
+        const fullSpins = 5;
+        const randomOffset = Math.floor(Math.random() * 360);
+        const totalRotation = fullSpins * 360 + randomOffset;
 
-        currentAngle = stopAngle;
-        canvas.style.transform = `rotate(${stopAngle}deg)`;
+        currentRotation = totalRotation;
+        canvas.style.transform = `rotate(${currentRotation}deg)`;
 
         setTimeout(() => {
-          const visualPrize = prizes[segmentIndex];
-          document.getElementById('prize-display').textContent = `You won: ${visualPrize}!`;
+          const finalAngle = (360 - (currentRotation % 360) + 90) % 360; // 90 aligns with pointer at top
+          const segmentIndex = Math.floor(finalAngle / arcDeg) % prizes.length;
+          const prize = prizes[segmentIndex];
+
+          document.getElementById('prize-display').textContent = `You won: ${prize}!`;
           document.getElementById('prize-display').style.display = 'block';
 
           setTimeout(() => {
-            determinePrize(visualPrize);
+            determinePrize(prize);
           }, 1000);
         }, 4000);
       }
@@ -186,6 +190,7 @@
         document.getElementById('spin-btn').disabled = false;
 
         const email = localStorage.getItem('userEmail') || '';
+        const name = document.getElementById('user-name').textContent;
         const redirectUrl = `/thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
 
         if (email) {
