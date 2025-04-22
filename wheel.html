@@ -69,7 +69,8 @@
     const centerY = canvas.height / 2;
     const radius = centerX;
 
-    const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
+    // ✅ Updated prize order to match your visual design
+    const prizes = ['Free Can', 'Free Chipsbag', 'Free Dip', 'Free Cookie'];
     const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
     const arc = 360 / prizes.length;
 
@@ -88,7 +89,7 @@
         ctx.fillStyle = colors[i];
         ctx.fill();
 
-        // Draw prize label
+        // Draw prize text
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(angle + arcRad / 2);
@@ -112,10 +113,9 @@
       setTimeout(() => {
         const finalAngle = totalRotation % 360;
 
-        // ✅ Adjust to account for -90° start angle (top)
+        // Adjust for canvas starting at -90°
         const offsetFromTop = (finalAngle + 90) % 360;
 
-        // ✅ Correct prize index
         const prizeIndex = Math.floor(offsetFromTop / arc);
         const prize = prizes[prizeIndex];
 
