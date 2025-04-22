@@ -69,14 +69,13 @@
     const centerY = canvas.height / 2;
     const radius = centerX;
 
-    // Natural clockwise order — no need to guess anymore
     const prizes = ['Free Can', 'Free Cookie', 'Free Dip', 'Free Chipsbag'];
     const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
     const arc = 360 / prizes.length;
 
     function drawWheel() {
       const arcRad = 2 * Math.PI / prizes.length;
-      const startAngle = -Math.PI / 2; // top
+      const startAngle = -Math.PI / 2; // Start at top
 
       for (let i = 0; i < prizes.length; i++) {
         const angle = startAngle + i * arcRad;
@@ -89,7 +88,6 @@
         ctx.fillStyle = colors[i];
         ctx.fill();
 
-        // Draw prize text
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(angle + arcRad / 2);
@@ -111,8 +109,14 @@
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        const finalAngle = (360 - (totalRotation % 360) + 90) % 360;
-        const prizeIndex = Math.floor(finalAngle / arc);
+        // 🧠 Normalize rotation
+        const normalizedRotation = totalRotation % 360;
+
+        // 🎯 Adjust for drawing start at -90° (top)
+        const angleAtTop = (360 - normalizedRotation + 90) % 360;
+
+        // ✅ Find the prize index
+        const prizeIndex = Math.floor(angleAtTop / arc);
         const prize = prizes[prizeIndex];
 
         document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
