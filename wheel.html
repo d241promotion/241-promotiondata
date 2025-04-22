@@ -8,26 +8,13 @@
       background: url('new-images/pizza-with-wings.jpg') center/cover no-repeat fixed;
       background-color: #FFF9E5;
       text-align: center;
-      padding: 0;
       margin: 0;
-      position: relative;
       overflow-x: hidden;
       color: #333;
-      line-height: 1.6;
-    }
-    body::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
     }
     .container {
       max-width: 600px;
       margin: 20px auto;
-      background: transparent;
       padding: 30px;
       position: relative;
       z-index: 1;
@@ -44,7 +31,7 @@
       position: absolute;
       top: 0;
       left: 0;
-      transition: transform 4s ease-out;
+      transition: transform 4s cubic-bezier(0.33, 1, 0.68, 1);
     }
     .pointer {
       width: 0;
@@ -56,7 +43,7 @@
       top: 0;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 1;
+      z-index: 2;
     }
     button {
       background: #E63946;
@@ -67,40 +54,18 @@
       cursor: pointer;
       font-size: 1.3em;
       font-weight: bold;
-      transition: background 0.3s;
-    }
-    button:hover {
-      background: #F4A261;
-    }
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-    h1 {
-      color: #FFFFFF;
-      font-weight: bold;
-      font-size: 2.8em;
-      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-    }
-    #user-name {
-      color: #FFD60A;
     }
     #prize-display {
+      margin-top: 20px;
       color: #FFD60A;
       font-size: 1.5em;
-      margin-top: 20px;
       display: none;
-    }
-    @media (max-width: 600px) {
-      .wheel-container { width: 300px; height: 300px; }
-      h1 { font-size: 2em; }
-      #prize-display { font-size: 1.2em; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🍕 Let’s Spin, <span id="user-name">Guest</span>!</h1>
+    <h1>🎯 Let’s Spin, <span id="user-name">Guest</span>!</h1>
     <div class="wheel-container">
       <div class="pointer"></div>
       <canvas id="wheel" width="450" height="450"></canvas>
@@ -119,17 +84,13 @@
       const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
       const canvas = document.getElementById('wheel');
       const ctx = canvas.getContext('2d');
-      const radius = 225;
-      const centerX = 225;
-      const centerY = 225;
-      const arc = (2 * Math.PI) / prizes.length;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radius = canvas.width / 2;
       const arcDeg = 360 / prizes.length;
-
-      let spinning = false;
-      let currentRotation = 0;
+      const arc = 2 * Math.PI / prizes.length;
 
       function drawWheel() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
         const startOffset = -Math.PI / 2;
         for (let i = 0; i < prizes.length; i++) {
           const startAngle = startOffset + i * arc;
@@ -142,7 +103,6 @@
           ctx.fillStyle = colors[i];
           ctx.fill();
           ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 3;
           ctx.stroke();
 
           ctx.save();
@@ -158,55 +118,44 @@
 
       drawWheel();
 
-      function spinWheel() {
-        if (spinning) return;
-        spinning = true;
-        document.getElementById('spin-btn').disabled = true;
+      document.getElementById('spin-btn').addEventListener('click', () => {
         document.getElementById('prize-display').style.display = 'none';
+        document.getElementById('spin-btn').disabled = true;
 
-        const fullSpins = 5;
-        const randomOffset = Math.floor(Math.random() * 360);
-        const totalRotation = fullSpins * 360 + randomOffset;
+        // Pick a prize
+        const index = Math.floor(Math.random() * prizes.length);
+        const prize = prizes[index];
 
-        currentRotation = totalRotation;
-        canvas.style.transform = `rotate(${currentRotation}deg)`;
+        // Each slice is arcDeg wide, align slice center to 270° (top)
+        const degreesPerPrize = 360 / prizes.length;
+        const prizeAngle = index * degreesPerPrize + degreesPerPrize / 2;
+
+        // Spin 5 full circles + align to that prize
+        const finalAngle = 360 * 5 + (360 - prizeAngle);
+        canvas.style.transform = `rotate(${finalAngle}deg)`;
 
         setTimeout(() => {
-          const finalAngle = (360 - (currentRotation % 360) + 90) % 360; // 90 aligns with pointer at top
-          const segmentIndex = Math.floor(finalAngle / arcDeg) % prizes.length;
-          const prize = prizes[segmentIndex];
-
-          document.getElementById('prize-display').textContent = `You won: ${prize}!`;
+          document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
           document.getElementById('prize-display').style.display = 'block';
 
           setTimeout(() => {
-            determinePrize(prize);
-          }, 1000);
+            const email = localStorage.getItem('userEmail') || '';
+            const redirectUrl = `/thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+
+            if (email) {
+              fetch('/save-prize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, prize }),
+              }).catch(() => {
+                alert(`You won: ${prize}! Unable to save prize. Show this screen at the store.`);
+              });
+            }
+
+            window.location.assign(window.location.origin + redirectUrl);
+          }, 1500);
         }, 4000);
-      }
-
-      function determinePrize(prize) {
-        spinning = false;
-        document.getElementById('spin-btn').disabled = false;
-
-        const email = localStorage.getItem('userEmail') || '';
-        const name = document.getElementById('user-name').textContent;
-        const redirectUrl = `/thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
-
-        if (email) {
-          fetch('/save-prize', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, prize }),
-          }).catch(() => {
-            alert(`You won: ${prize}! Unable to save prize, but you can still claim it at 241 Pizza.`);
-          });
-        }
-
-        window.location.assign(window.location.origin + redirectUrl);
-      }
-
-      document.getElementById('spin-btn').addEventListener('click', spinWheel);
+      });
     });
   </script>
 </body>
