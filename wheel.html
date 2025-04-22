@@ -31,7 +31,7 @@
       position: absolute;
       top: 0;
       left: 0;
-      transition: transform 4s cubic-bezier(0.33, 1, 0.68, 1);
+      transition: transform 4s ease-out;
     }
     .pointer {
       width: 0;
@@ -87,10 +87,17 @@
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
       const radius = canvas.width / 2;
-      const arcDeg = 360 / prizes.length;
       const arc = 2 * Math.PI / prizes.length;
 
+      const prizeAngles = {
+        'Free Dip': 2025,
+        'Free Cookie': 1935,
+        'Free Can': 1845,
+        'Free Chipsbag': 2115
+      };
+
       function drawWheel() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         const startOffset = -Math.PI / 2;
         for (let i = 0; i < prizes.length; i++) {
           const startAngle = startOffset + i * arc;
@@ -103,6 +110,7 @@
           ctx.fillStyle = colors[i];
           ctx.fill();
           ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 3;
           ctx.stroke();
 
           ctx.save();
@@ -122,17 +130,11 @@
         document.getElementById('prize-display').style.display = 'none';
         document.getElementById('spin-btn').disabled = true;
 
-        // Pick a prize
-        const index = Math.floor(Math.random() * prizes.length);
-        const prize = prizes[index];
+        const prizeList = Object.keys(prizeAngles);
+        const prize = prizeList[Math.floor(Math.random() * prizeList.length)];
+        const angle = prizeAngles[prize];
 
-        // Each slice is arcDeg wide, align slice center to 270° (top)
-        const degreesPerPrize = 360 / prizes.length;
-        const prizeAngle = index * degreesPerPrize + degreesPerPrize / 2;
-
-        // Spin 5 full circles + align to that prize
-        const finalAngle = 360 * 5 + (360 - prizeAngle);
-        canvas.style.transform = `rotate(${finalAngle}deg)`;
+        canvas.style.transform = `rotate(${angle}deg)`;
 
         setTimeout(() => {
           document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
