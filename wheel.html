@@ -88,7 +88,7 @@
         ctx.fillStyle = colors[i];
         ctx.fill();
 
-        // Draw prize text
+        // Draw prize label
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(angle + arcRad / 2);
@@ -112,9 +112,10 @@
       setTimeout(() => {
         const finalAngle = totalRotation % 360;
 
-        // Offset for start angle at -90 degrees
-        const offsetFromTop = (finalAngle + 270) % 360;
+        // ✅ Adjust to account for -90° start angle (top)
+        const offsetFromTop = (finalAngle + 90) % 360;
 
+        // ✅ Correct prize index
         const prizeIndex = Math.floor(offsetFromTop / arc);
         const prize = prizes[prizeIndex];
 
