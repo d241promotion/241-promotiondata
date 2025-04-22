@@ -1,220 +1,127 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>24/1 Pizza - Enter to Spin!</title>
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <link rel="preload" href="new images/241-pizza-logo.png" as="image">
+  <title>Spin the Wheel!</title>
   <style>
-    @font-face {
-      font-family: 'Poppins';
-      src: url('fonts/Poppins-Regular.woff2') format('woff2'),
-           url('fonts/Poppins-Regular.woff') format('woff');
-      font-weight: 400;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: 'Poppins';
-      src: url('fonts/Poppins-Bold.woff2') format('woff2'),
-           url('fonts/Poppins-Bold.woff') format('woff');
-      font-weight: 700;
-      font-display: swap;
-    }
     body {
-      font-family: 'Poppins', Arial, sans-serif;
-      background: #976742;
+      font-family: 'Poppins', sans-serif;
+      background: #fff8dc;
       text-align: center;
-      padding: 0;
       margin: 0;
-      position: relative;
-      overflow-x: hidden;
-      color: #333;
-      line-height: 1.6;
-    }
-    .hero {
-      background: url('new images/pizza-box-wings.jpg') center/cover no-repeat;
-      height: 300px;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.7);
-    }
-    .hero::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6));
-    }
-    .hero img.logo {
-      width: 200px;
-      position: relative;
-      z-index: 1;
-      filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
-    }
-    .hero h1 {
-      position: relative;
-      z-index: 1;
-      font-size: 2em;
-      color: #F4A261;
-      margin: 10px 0;
+      padding: 0;
     }
     .container {
-      max-width: 600px;
-      margin: 20px auto;
-      background: rgba(255, 255, 255, 0.9);
-      padding: 30px;
-      border-radius: 15px;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      padding: 20px;
+    }
+    canvas {
+      transition: transform 4s ease-out;
+    }
+    .pointer {
+      width: 0;
+      height: 0;
+      border-left: 25px solid transparent;
+      border-right: 25px solid transparent;
+      border-top: 50px solid red; /* Points downward */
+      position: absolute;
+      top: -25px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+    }
+    .wheel-wrapper {
       position: relative;
-      animation: fadeIn 1s ease-in;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    h1 {
-      color: #E63946;
-      font-weight: bold;
-      font-size: 2.5em;
-      margin-bottom: 20px;
-    }
-    p {
-      font-size: 1.2em;
-      color: #666;
-    }
-    input {
-      padding: 15px;
-      margin: 15px 0;
-      width: 90%;
-      border: 2px solid #E63946;
-      border-radius: 8px;
-      font-size: 1.1em;
-      transition: border-color 0.3s;
-    }
-    input:focus {
-      border-color: #F4A261;
-      outline: none;
-    }
-    input::placeholder {
-      color: #999;
+      width: 500px;
+      height: 500px;
+      margin: 0 auto;
     }
     button {
-      background: #E63946;
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 18px;
+      background: #e63946;
       color: white;
-      padding: 15px 30px;
       border: none;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 1.3em;
-      font-weight: bold;
-      transition: background 0.3s;
     }
-    button:hover {
-      background: #F4A261;
-    }
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-    .error {
-      color: #E63946;
-      font-weight: bold;
-      margin-top: 10px;
-    }
-    .loading {
-      display: none;
-      font-size: 1.2em;
-      color: #E63946;
-      margin-top: 10px;
-    }
-    @media (max-width: 600px) {
-      .hero { height: 200px; }
-      .hero img.logo { width: 150px; }
-      .container { padding: 15px; }
-      input { width: 100%; }
+    #prize-display {
+      margin-top: 20px;
+      font-size: 22px;
+      color: green;
     }
   </style>
 </head>
 <body>
-  <div class="hero">
-    <img src="new images/241-pizza-logo.png" alt="24/1 Pizza Logo" class="logo">
-    <h1>Spin to Win Delicious Prizes! 🍕</h1>
-  </div>
   <div class="container">
-    <h1>Enter to Spin!</h1>
-    <p>Fill in your details for a chance to win!</p>
-    <form id="customer-form" novalidate>
-      <input type="text" id="name" name="name" placeholder="Your Name" required><br>
-      <input type="email" id="email" name="email" placeholder="Email (e.g., user@example.com)" required><br>
-      <input type="tel" id="phone" name="phone" placeholder="Phone (e.g., 123-456-7890)" required><br>
-      <button type="submit" id="submit-btn">Spin!</button>
-    </form>
-    <div id="error" class="error"></div>
-    <div id="loading" class="loading">Loading...</div>
+    <h1>🎯 Spin the Wheel!</h1>
+    <div class="wheel-wrapper">
+      <div class="pointer"></div>
+      <canvas id="wheel" width="500" height="500"></canvas>
+    </div>
+    <button id="spin-btn">Spin!</button>
+    <div id="prize-display"></div>
   </div>
 
   <script>
-    document.getElementById('customer-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const submitBtn = document.getElementById('submit-btn');
-      const errorDiv = document.getElementById('error');
-      const loadingDiv = document.getElementById('loading');
-      errorDiv.textContent = '';
+    const canvas = document.getElementById('wheel');
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = centerX;
 
-      const name = document.getElementById('name').value.trim();
-      const email = document.getElementById('email').value.trim();
-      let phone = document.getElementById('phone').value.trim();
+    const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
+    const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
 
-      if (!name) {
-        errorDiv.textContent = 'Please enter your name';
-        return;
+    const arc = 360 / prizes.length;
+
+    function drawWheel() {
+      const arcRad = 2 * Math.PI / prizes.length;
+      const startAngle = -Math.PI / 2;
+
+      for (let i = 0; i < prizes.length; i++) {
+        const angle = startAngle + i * arcRad;
+        const endAngle = angle + arcRad;
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, angle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = colors[i];
+        ctx.fill();
+
+        // Text
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(angle + arcRad / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(prizes[i], radius - 10, 0);
+        ctx.restore();
       }
-      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
-        errorDiv.textContent = 'Please enter a valid email (e.g., user@example.com)';
-        return;
-      }
-      phone = phone.replace(/[-\s]/g, '');
-      if (!/^\d{10}$/.test(phone)) {
-        errorDiv.textContent = 'Please enter a valid 10-digit phone number (e.g., 1234567890)';
-        return;
-      }
+    }
 
-      submitBtn.disabled = true;
-      loadingDiv.style.display = 'block';
+    drawWheel();
 
-      try {
-        const response = await fetch('/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone }),
-        });
+    document.getElementById('spin-btn').addEventListener('click', () => {
+      const spins = 5; // Full rotations
+      const randomSlice = Math.floor(Math.random() * prizes.length);
+      const sliceAngle = 360 / prizes.length;
+      const rotation = spins * 360 + randomSlice * sliceAngle + sliceAngle / 2;
 
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.error || `Server error: ${response.status}`);
-        }
+      canvas.style.transform = `rotate(${rotation}deg)`;
 
-        if (result.success) {
-          localStorage.setItem('userEmail', email);
-          window.location.assign(`/wheel.html?name=${encodeURIComponent(name)}`);
-        } else {
-          throw new Error(result.error || 'Submission failed');
-        }
-      } catch (error) {
-        errorDiv.textContent = error.message.includes('already exist')
-          ? error.message
-          : 'An error occurred. Please try again.';
-      } finally {
-        submitBtn.disabled = false;
-        loadingDiv.style.display = 'none';
-      }
+      setTimeout(() => {
+        const finalAngle = (rotation % 360 + 360) % 360;
+        const adjustedAngle = (360 - finalAngle + arc / 2) % 360;
+        const prizeIndex = Math.floor(adjustedAngle / arc);
+        const prize = prizes[prizeIndex];
+
+        document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
+
+        // Optional: Redirect
+        // window.location.href = `/thankyou.html?prize=${encodeURIComponent(prize)}`;
+      }, 4000);
     });
   </script>
 </body>
