@@ -69,14 +69,14 @@
     const centerY = canvas.height / 2;
     const radius = centerX;
 
-    // ✅ Clockwise drawing starting from right (0°)
-    const prizes = ['Free Dip', 'Free Chipsbag', 'Free Can', 'Free Cookie'];
+    // Natural clockwise order — no need to guess anymore
+    const prizes = ['Free Can', 'Free Cookie', 'Free Dip', 'Free Chipsbag'];
     const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
     const arc = 360 / prizes.length;
 
     function drawWheel() {
       const arcRad = 2 * Math.PI / prizes.length;
-      const startAngle = 0; // ✅ Start at 0° (right side)
+      const startAngle = -Math.PI / 2; // top
 
       for (let i = 0; i < prizes.length; i++) {
         const angle = startAngle + i * arcRad;
@@ -111,17 +111,12 @@
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        const finalAngle = totalRotation % 360;
-
-        // ✅ Adjust for start angle 0°, pointer is at top (90°)
-        const offsetFromTop = (finalAngle + 90) % 360;
-
-        const prizeIndex = Math.floor(offsetFromTop / arc);
+        const finalAngle = (360 - (totalRotation % 360) + 90) % 360;
+        const prizeIndex = Math.floor(finalAngle / arc);
         const prize = prizes[prizeIndex];
 
         document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
 
-        // Redirect to thank you page
         setTimeout(() => {
           window.location.href = `/thankyou.html?prize=${encodeURIComponent(prize)}`;
         }, 1500);
