@@ -75,7 +75,7 @@
 
     function drawWheel() {
       const arcRad = 2 * Math.PI / prizes.length;
-      const startAngle = -Math.PI / 2; // Start drawing at top
+      const startAngle = -Math.PI / 2; // Start drawing from top
 
       for (let i = 0; i < prizes.length; i++) {
         const angle = startAngle + i * arcRad;
@@ -102,18 +102,16 @@
     drawWheel();
 
     document.getElementById('spin-btn').addEventListener('click', () => {
-      const totalSpins = 5;
-      const randomRotation = Math.floor(Math.random() * 360);
-      const totalRotation = totalSpins * 360 + randomRotation;
+      // ✅ Fully random spin between 5–8 full spins and 0–359 degrees
+      const spins = Math.floor(Math.random() * 4) + 5; // 5 to 8 full spins
+      const extraRotation = Math.floor(Math.random() * 360);
+      const totalRotation = spins * 360 + extraRotation;
 
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
         const normalizedRotation = totalRotation % 360;
-
-        // ✅ Adjusted math to align with canvas drawing and pointer
         const angleAtPointer = (normalizedRotation + 90) % 360;
-
         const prizeIndex = Math.floor(angleAtPointer / arc);
         const prize = prizes[prizeIndex];
 
