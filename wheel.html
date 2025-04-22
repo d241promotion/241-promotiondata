@@ -165,15 +165,14 @@
         document.getElementById('prize-display').style.display = 'none';
 
         const segmentIndex = Math.floor(Math.random() * prizes.length);
-        const selectedPrize = prizes[segmentIndex];
-        const stopAngle = (segmentIndex * arcDeg) % 360;
+        const stopAngle = (segmentIndex * arcDeg) + (arcDeg / 2);  // center of segment
         const spinAngleStart = 720 + stopAngle;
 
         currentAngle = spinAngleStart;
         canvas.style.transform = `rotate(${currentAngle}deg)`;
 
         setTimeout(() => {
-          const finalAngle = currentAngle % 360;
+          const finalAngle = (360 - (currentAngle % 360) + arcDeg / 2) % 360;
           const visualSegment = Math.floor(finalAngle / arcDeg) % prizes.length;
           const visualPrize = prizes[visualSegment];
 
@@ -199,7 +198,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, prize }),
           }).catch(() => {
-            alert(`You won: ${prize}! Unable to save prize, but show this screen at 241 Pizza.`);
+            alert(`You won: ${prize}! Unable to save prize, but you can still claim it at 241 Pizza.`);
           });
         }
 
