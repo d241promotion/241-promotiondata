@@ -21,11 +21,11 @@
       height: 0;
       border-left: 25px solid transparent;
       border-right: 25px solid transparent;
-      border-bottom: 50px solid red;
+      border-bottom: 50px solid red; /* triangle pointing down */
       position: absolute;
-      top: 10px;
+      top: 10px; /* pointer at the top */
       left: 50%;
-      transform: translateX(-50%);
+      transform: translateX(-50%); /* no rotation needed */
       z-index: 2;
     }
     .wheel-wrapper {
@@ -77,7 +77,7 @@
 
     function drawWheel() {
       const arc = 2 * Math.PI / totalSlices;
-      const startAngle = -Math.PI / 2; // pointer at top now
+      const startAngle = -Math.PI / 2; // starting at top
 
       for (let i = 0; i < totalSlices; i++) {
         const angle = startAngle + i * arc;
@@ -111,7 +111,7 @@
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        const normalized = (360 - (totalRotation % 360) + 270) % 360; // pointer now at 270° (top)
+        const normalized = (360 - (totalRotation % 360) + 270) % 360; // pointer at top = 270°
         const selectedIndex = Math.floor(normalized / sliceAngle);
         const selectedPrize = prizes[selectedIndex];
 
