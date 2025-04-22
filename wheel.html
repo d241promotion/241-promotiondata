@@ -5,7 +5,7 @@
   <style>
     body {
       font-family: 'Poppins', sans-serif;
-      background: #fff8dc;
+      background: #fff4e6;
       text-align: center;
       margin: 0;
       padding: 0;
@@ -21,9 +21,9 @@
       height: 0;
       border-left: 25px solid transparent;
       border-right: 25px solid transparent;
-      border-bottom: 50px solid red;
+      border-top: 50px solid red; /* flipped from bottom to top */
       position: absolute;
-      top: 10px;
+      bottom: 10px; /* moved from top to bottom */
       left: 50%;
       transform: translateX(-50%);
       z-index: 2;
@@ -36,24 +36,25 @@
     }
     button {
       margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 18px;
+      padding: 14px 28px;
+      font-size: 20px;
       background: #e63946;
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
     }
     #prize-display {
-      margin-top: 20px;
-      font-size: 22px;
-      color: green;
+      margin-top: 25px;
+      font-size: 24px;
+      color: #008000;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎯 Spin the Wheel!</h1>
+    <h1 style="font-size: 32px; color: #222">🎯 Spin the Wheel!</h1>
     <div class="wheel-wrapper">
       <div class="pointer"></div>
       <canvas id="wheel" width="500" height="500"></canvas>
@@ -73,15 +74,15 @@
     const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
 
     const prizeAngles = {
-      'Free Dip': 2020,
-      'Free Cookie': 1930,
-      'Free Can': 1840,
-      'Free Chipsbag': 2110
+      'Free Dip': 1125,
+      'Free Cookie': 1035,
+      'Free Can': 945,
+      'Free Chipsbag': 1215
     };
 
     function drawWheel() {
       const arc = 2 * Math.PI / prizes.length;
-      const startAngle = -Math.PI / 2;
+      const startAngle = Math.PI / 2; // pointer at bottom now
 
       for (let i = 0; i < prizes.length; i++) {
         const angle = startAngle + i * arc;
@@ -94,14 +95,13 @@
         ctx.fillStyle = colors[i];
         ctx.fill();
 
-        // Text
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(angle + arc / 2);
         ctx.textAlign = 'right';
-        ctx.fillStyle = '#333';
-        ctx.font = 'bold 16px sans-serif';
-        ctx.fillText(prizes[i], radius - 10, 0);
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 22px Poppins';
+        ctx.fillText(prizes[i], radius - 20, 0);
         ctx.restore();
       }
     }
@@ -118,8 +118,9 @@
       setTimeout(() => {
         document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
 
-        // Optional: Redirect after 1.5s
-        // window.location.href = `/thankyou.html?prize=${encodeURIComponent(prize)}`;
+        setTimeout(() => {
+          window.location.href = `/thankyou.html?prize=${encodeURIComponent(prize)}&name=Guest`;
+        }, 1500);
       }, 4000);
     });
   </script>
