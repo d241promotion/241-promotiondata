@@ -69,8 +69,8 @@
     const centerY = canvas.height / 2;
     const radius = centerX;
 
-    // ✅ Updated prize order to match your visual design
-    const prizes = ['Free Can', 'Free Cookie', 'Free Dip', 'Free Chipsbag'];
+    // ✅ Correct prize order matching visual layout
+    const prizes = ['Free Cookie', 'Free Dip', 'Free Chipsbag', 'Free Can'];
     const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
     const arc = 360 / prizes.length;
 
@@ -113,7 +113,7 @@
       setTimeout(() => {
         const finalAngle = totalRotation % 360;
 
-        // Adjust for canvas starting at -90°
+        // Adjust for canvas drawing start at -90°
         const offsetFromTop = (finalAngle + 90) % 360;
 
         const prizeIndex = Math.floor(offsetFromTop / arc);
