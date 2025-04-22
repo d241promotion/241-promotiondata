@@ -21,7 +21,7 @@
       height: 0;
       border-left: 25px solid transparent;
       border-right: 25px solid transparent;
-      border-top: 50px solid red; /* Points downward */
+      border-top: 50px solid red; /* Arrow pointing down */
       position: absolute;
       top: -25px;
       left: 50%;
@@ -71,12 +71,11 @@
 
     const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
     const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
-
     const arc = 360 / prizes.length;
 
     function drawWheel() {
       const arcRad = 2 * Math.PI / prizes.length;
-      const startAngle = -Math.PI / 2;
+      const startAngle = -Math.PI / 2; // Starts at top
 
       for (let i = 0; i < prizes.length; i++) {
         const angle = startAngle + i * arcRad;
@@ -113,13 +112,13 @@
 
       setTimeout(() => {
         const finalAngle = (rotation % 360 + 360) % 360;
-        const adjustedAngle = (360 - finalAngle + arc / 2) % 360;
-        const prizeIndex = Math.floor(adjustedAngle / arc);
+        const correctedAngle = (finalAngle + 90) % 360; // Adjust for -90° drawing start
+        const prizeIndex = Math.floor(correctedAngle / arc);
         const prize = prizes[prizeIndex];
 
         document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
 
-        // Optional: Redirect
+        // Optional redirect:
         // window.location.href = `/thankyou.html?prize=${encodeURIComponent(prize)}`;
       }, 4000);
     });
