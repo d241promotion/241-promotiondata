@@ -21,9 +21,9 @@
       height: 0;
       border-left: 25px solid transparent;
       border-right: 25px solid transparent;
-      border-top: 50px solid red; /* flipped from bottom to top */
+      border-top: 50px solid red;
       position: absolute;
-      bottom: 10px; /* moved from top to bottom */
+      bottom: 10px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 2;
@@ -72,19 +72,14 @@
 
     const prizes = ['Free Dip', 'Free Cookie', 'Free Can', 'Free Chipsbag'];
     const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
-
-    const prizeAngles = {
-      'Free Dip': 1125,
-      'Free Cookie': 1035,
-      'Free Can': 945,
-      'Free Chipsbag': 1215
-    };
+    const totalSlices = prizes.length;
+    const sliceAngle = 360 / totalSlices;
 
     function drawWheel() {
-      const arc = 2 * Math.PI / prizes.length;
-      const startAngle = Math.PI / 2; // pointer at bottom now
+      const arc = 2 * Math.PI / totalSlices;
+      const startAngle = Math.PI / 2;
 
-      for (let i = 0; i < prizes.length; i++) {
+      for (let i = 0; i < totalSlices; i++) {
         const angle = startAngle + i * arc;
         const endAngle = angle + arc;
 
@@ -109,17 +104,21 @@
     drawWheel();
 
     document.getElementById('spin-btn').addEventListener('click', () => {
-      const prizeList = Object.keys(prizeAngles);
-      const prize = prizeList[Math.floor(Math.random() * prizeList.length)];
-      const rotation = prizeAngles[prize];
+      const baseRotation = 360 * 5;
+      const randomOffset = Math.floor(Math.random() * 360);
+      const totalRotation = baseRotation + randomOffset;
 
-      canvas.style.transform = `rotate(${rotation}deg)`;
+      canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
+        const normalized = (360 - (totalRotation % 360) + 90) % 360;
+        const selectedIndex = Math.floor(normalized / sliceAngle);
+        const selectedPrize = prizes[selectedIndex];
+
+        document.getElementById('prize-display').textContent = `🎉 You won: ${selectedPrize}!`;
 
         setTimeout(() => {
-          window.location.href = `/thankyou.html?prize=${encodeURIComponent(prize)}&name=Guest`;
+          window.location.href = `/thankyou.html?prize=${encodeURIComponent(selectedPrize)}&name=Guest`;
         }, 1500);
       }, 4000);
     });
