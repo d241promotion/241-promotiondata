@@ -112,8 +112,8 @@
 
       setTimeout(() => {
         const finalAngle = (rotation % 360 + 360) % 360;
-        const correctedAngle = (finalAngle + 90) % 360; // Adjust for -90° drawing start
-        const prizeIndex = Math.floor(correctedAngle / arc);
+        const angleFromTop = (360 - finalAngle + 90) % 360;
+        const prizeIndex = Math.floor(angleFromTop / arc);
         const prize = prizes[prizeIndex];
 
         document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
