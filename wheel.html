@@ -69,8 +69,9 @@
     const centerY = canvas.height / 2;
     const radius = centerX;
 
-    const prizes = ["Free Can", "Free Cookie", "Free Dip", "Free Chipsbag"];
-    const colors = ["#FFD60A", "#FF70A6", "#00F5D4", "#FF9F1C"];
+    // ✅ Fixed prize order based on visual layout (starting from top, clockwise)
+    const prizes = ["Free Chipsbag", "Free Dip", "Free Cookie", "Free Can"];
+    const colors = ["#FF9F1C", "#00F5D4", "#FF70A6", "#FFD60A"];
     const arc = 360 / prizes.length;
 
     function drawWheel() {
@@ -109,12 +110,12 @@
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        // ✅ Read rotation angle from DOM (matrix)
+        // ✅ Read actual CSS transform angle
         const transform = getComputedStyle(canvas).transform;
         let angleDeg = 0;
 
         if (transform !== "none") {
-          const values = transform.split('(')[1].split(')')[0].split(',');
+          const values = transform.split("(")[1].split(")")[0].split(",");
           const a = parseFloat(values[0]);
           const b = parseFloat(values[1]);
           angleDeg = Math.round(Math.atan2(b, a) * (180 / Math.PI));
@@ -122,12 +123,12 @@
 
         if (angleDeg < 0) angleDeg += 360;
 
-        // ✅ Adjust for canvas starting at -90° and pointer at 0°
+        // ✅ Adjust for -90° start (canvas) and 0° pointer
         const pointerAngle = (angleDeg + 90) % 360;
         const prizeIndex = Math.floor(pointerAngle / arc);
         const prize = prizes[prizeIndex];
 
-        console.log("🎯 DOM Angle:", angleDeg);
+        console.log("🎯 Visual Rotation:", angleDeg);
         console.log("🎯 Pointer Angle:", pointerAngle);
         console.log("🏆 Prize Index:", prizeIndex);
         console.log("🎁 Prize:", prize);
