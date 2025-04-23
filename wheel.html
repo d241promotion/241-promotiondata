@@ -112,16 +112,13 @@
         const normalizedAngle = totalRotation % 360;
         const pointerAngle = (normalizedAngle + 90) % 360;
 
-        // ✅ Fix: subtract 1 to align prize with pointer
-        const rawIndex = Math.floor(pointerAngle / arc);
-        const prizeIndex = (rawIndex - 1 + prizes.length) % prizes.length;
+        // ✅ Final fix: no -1 offset needed
+        const prizeIndex = Math.floor(pointerAngle / arc);
         const prize = prizes[prizeIndex];
 
-        console.log("Total Rotation:", totalRotation);
-        console.log("Normalized Angle:", normalizedAngle);
-        console.log("Pointer Angle:", pointerAngle);
-        console.log("Prize Index:", prizeIndex);
-        console.log("Prize:", prize);
+        console.log("🎯 Pointer Angle:", pointerAngle);
+        console.log("🏆 Prize Index:", prizeIndex);
+        console.log("🎁 Prize:", prize);
 
         document.getElementById("prize-display").textContent = `🎉 You won: ${prize}!`;
 
