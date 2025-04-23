@@ -101,8 +101,15 @@
 
     drawWheel();
 
+    // 🔍 Log segment angle ranges
+    for (let i = 0; i < prizes.length; i++) {
+      const from = (i * arc + 270) % 360;
+      const to = ((i + 1) * arc + 270) % 360;
+      console.log(`Prize: ${prizes[i]} | Angle: ${from.toFixed(1)}° to ${to.toFixed(1)}°`);
+    }
+
     document.getElementById('spin-btn').addEventListener('click', () => {
-      const spins = Math.floor(Math.random() * 4) + 5; // 5 to 8 full spins
+      const spins = Math.floor(Math.random() * 4) + 5;
       const extraRotation = Math.floor(Math.random() * 360);
       const totalRotation = spins * 360 + extraRotation;
 
@@ -110,17 +117,14 @@
 
       setTimeout(() => {
         const angle = totalRotation % 360;
+        const pointerAngle = (angle + 90) % 360;
 
-        // ✅ Final fix: align pointer with canvas drawn from -90°
-        const correctedAngle = (angle - 90 + 360) % 360;
-
-        const prizeIndex = Math.floor(correctedAngle / arc);
+        const prizeIndex = Math.floor(pointerAngle / arc) % prizes.length;
         const prize = prizes[prizeIndex];
 
-        console.log("Rotation:", angle);
-        console.log("Corrected Angle at Pointer:", correctedAngle);
-        console.log("Prize Index:", prizeIndex);
-        console.log("Prize:", prize);
+        console.log("🎯 Actual Pointer Angle:", pointerAngle.toFixed(1));
+        console.log("🎁 Prize Index:", prizeIndex);
+        console.log("🏆 Prize:", prize);
 
         document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
 
