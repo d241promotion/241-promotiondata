@@ -69,7 +69,6 @@
     const centerY = canvas.height / 2;
     const radius = centerX;
 
-    // ✅ CLOCKWISE VISUAL ORDER
     const prizes = ["Free Can", "Free Cookie", "Free Dip", "Free Chipsbag"];
     const colors = ["#FFD60A", "#FF70A6", "#00F5D4", "#FF9F1C"];
     const arc = 360 / prizes.length;
@@ -103,23 +102,23 @@
     drawWheel();
 
     document.getElementById("spin-btn").addEventListener("click", () => {
-      const fullSpins = Math.floor(Math.random() * 4) + 5;
-      const extraDegrees = Math.floor(Math.random() * 360);
-      const totalRotation = fullSpins * 360 + extraDegrees;
+      const spins = Math.floor(Math.random() * 4) + 5;
+      const extraRotation = Math.floor(Math.random() * 360);
+      const totalRotation = spins * 360 + extraRotation;
 
-      // CSS rotate
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
         const normalizedAngle = totalRotation % 360;
-
-        // ✅ Adjust: +90 because canvas starts drawing at -90°
         const pointerAngle = (normalizedAngle + 90) % 360;
 
-        const prizeIndex = Math.floor(pointerAngle / arc);
+        // ✅ Fix: subtract 1 to align prize with pointer
+        const rawIndex = Math.floor(pointerAngle / arc);
+        const prizeIndex = (rawIndex - 1 + prizes.length) % prizes.length;
         const prize = prizes[prizeIndex];
 
-        console.log("Normalized:", normalizedAngle);
+        console.log("Total Rotation:", totalRotation);
+        console.log("Normalized Angle:", normalizedAngle);
         console.log("Pointer Angle:", pointerAngle);
         console.log("Prize Index:", prizeIndex);
         console.log("Prize:", prize);
