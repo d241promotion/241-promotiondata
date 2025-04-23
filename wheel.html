@@ -109,13 +109,25 @@
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        const normalizedAngle = totalRotation % 360;
-        const pointerAngle = (normalizedAngle + 90) % 360;
+        // ✅ Read rotation angle from DOM (matrix)
+        const transform = getComputedStyle(canvas).transform;
+        let angleDeg = 0;
 
-        // ✅ Final fix: no -1 offset needed
+        if (transform !== "none") {
+          const values = transform.split('(')[1].split(')')[0].split(',');
+          const a = parseFloat(values[0]);
+          const b = parseFloat(values[1]);
+          angleDeg = Math.round(Math.atan2(b, a) * (180 / Math.PI));
+        }
+
+        if (angleDeg < 0) angleDeg += 360;
+
+        // ✅ Adjust for canvas starting at -90° and pointer at 0°
+        const pointerAngle = (angleDeg + 90) % 360;
         const prizeIndex = Math.floor(pointerAngle / arc);
         const prize = prizes[prizeIndex];
 
+        console.log("🎯 DOM Angle:", angleDeg);
         console.log("🎯 Pointer Angle:", pointerAngle);
         console.log("🏆 Prize Index:", prizeIndex);
         console.log("🎁 Prize:", prize);
