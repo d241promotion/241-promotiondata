@@ -1,4 +1,3 @@
-// Final server.js with full logic and root-based routing (without Prize column)
 const express = require('express');
 const bodyParser = require('body-parser');
 const ExcelJS = require('exceljs');
@@ -8,6 +7,7 @@ const { google } = require('googleapis');
 const { promisify } = require('util');
 const lockfile = require('lockfile');
 const compression = require('compression');
+const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -17,31 +17,14 @@ const LOCK_FILE = path.join(__dirname, 'file.lock');
 const GOOGLE_DRIVE_FOLDER_ID = '1l4e6cq0LaFS2IFkJlWKLFJ_CVIEqPqTK';
 
 const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT || '{}'),
+  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
   scopes: ['https://www.googleapis.com/auth/drive'],
 });
 const drive = google.drive({ version: 'v3', auth });
 
 app.use(compression());
+app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(__dirname, {
-  maxAge: '1d',
-  extensions: ['html'],
-  setHeaders: (res, path) => {
-    console.log(`Serving static file: ${path}`);
-  }
-}));
-
-// ✅ Serve HTML pages from root
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-app.get('/wheel.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'wheel.html'));
-});
-app.get('/thankyou.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'thankyou.html'));
-});
 
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
