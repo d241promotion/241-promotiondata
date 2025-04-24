@@ -21,7 +21,7 @@
       height: 0;
       border-left: 25px solid transparent;
       border-right: 25px solid transparent;
-      border-top: 50px solid red;
+      border-bottom: 50px solid red; /* Pointing down from top */
       position: absolute;
       top: -25px;
       left: 50%;
@@ -44,11 +44,6 @@
       border-radius: 8px;
       cursor: pointer;
     }
-    #prize-display {
-      margin-top: 20px;
-      font-size: 22px;
-      color: green;
-    }
   </style>
 </head>
 <body>
@@ -59,7 +54,6 @@
       <canvas id="wheel" width="500" height="500"></canvas>
     </div>
     <button id="spin-btn">Spin!</button>
-    <div id="prize-display"></div>
   </div>
 
   <script>
@@ -72,21 +66,6 @@
     const prizes = ['Free Chipsbag', 'Free Dip', 'Free Cookie', 'Free Can'];
     const colors = ['#FF9F1C', '#00F5D4', '#FF70A6', '#FFD60A'];
     const arc = 360 / prizes.length;
-
-    let spinQueue = [];
-
-    function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-      return array;
-    }
-
-    function refillSpinQueue() {
-      spinQueue = shuffle([...Array(prizes.length).keys()]); // [0, 1, 2, 3] shuffled
-      console.log("🔁 New Prize Order:", spinQueue.map(i => prizes[i]));
-    }
 
     function drawWheel() {
       const arcRad = 2 * Math.PI / prizes.length;
@@ -115,27 +94,19 @@
     }
 
     drawWheel();
-    refillSpinQueue(); // Initial load
 
     document.getElementById('spin-btn').addEventListener('click', () => {
-      if (spinQueue.length === 0) refillSpinQueue();
-
-      const prizeIndex = spinQueue.shift(); // Get next unique prize
-      const spins = Math.floor(Math.random() * 4) + 5;
-      const angleAtPointer = prizeIndex * arc;
-      const extraRotation = (360 - angleAtPointer + 270) % 360; // 270 aligns prize to top
+      const prizeIndex = Math.floor(Math.random() * prizes.length);
+      const spins = 5 + Math.floor(Math.random() * 3); // 5-7 full spins
+      const stopAngle = prizeIndex * arc;
+      const extraRotation = (360 - stopAngle + 270) % 360; // Align prize at top
       const totalRotation = spins * 360 + extraRotation;
 
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        const prize = prizes[prizeIndex];
-        console.log("🎯 Prize:", prize);
-        document.getElementById('prize-display').textContent = `🎉 You won: ${prize}!`;
-
-        setTimeout(() => {
-          window.location.href = `/thankyou.html?prize=${encodeURIComponent(prize)}`;
-        }, 1500);
+        const selectedPrize = prizes[prizeIndex];
+        window.location.href = `/thankyou.html?prize=${encodeURIComponent(selectedPrize)}`;
       }, 4000);
     });
   </script>
