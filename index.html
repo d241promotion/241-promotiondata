@@ -55,8 +55,14 @@
       const formData = new FormData(form);
       const data = Object.fromEntries(formData.entries());
 
-      // Frontend phone validation
       const phoneRegex = /^\d{10}$/;
+      const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+
+      if (!emailRegex.test(data.email)) {
+        errorDiv.textContent = "Please enter a valid email address.";
+        return;
+      }
+
       if (!phoneRegex.test(data.phone)) {
         errorDiv.textContent = "Phone number must be exactly 10 digits.";
         return;
@@ -74,7 +80,7 @@
           window.location.href = '/wheel.html';
         } else {
           if (result.error.includes("email")) {
-            errorDiv.textContent = "This email already exists.";
+            errorDiv.textContent = "An account with this email already exists.";
           } else if (result.error.includes("phone")) {
             errorDiv.textContent = "This phone number has already been used.";
           } else {
