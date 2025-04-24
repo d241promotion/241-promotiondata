@@ -50,8 +50,17 @@
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      errorDiv.textContent = "";
+
       const formData = new FormData(form);
       const data = Object.fromEntries(formData.entries());
+
+      // Frontend phone validation
+      const phoneRegex = /^\d{10}$/;
+      if (!phoneRegex.test(data.phone)) {
+        errorDiv.textContent = "Phone number must be exactly 10 digits.";
+        return;
+      }
 
       try {
         const response = await fetch('/submit', {
@@ -64,10 +73,16 @@
         if (result.success) {
           window.location.href = '/wheel.html';
         } else {
-          errorDiv.textContent = result.error || "Something went wrong.";
+          if (result.error.includes("email")) {
+            errorDiv.textContent = "This email already exists.";
+          } else if (result.error.includes("phone")) {
+            errorDiv.textContent = "This phone number has already been used.";
+          } else {
+            errorDiv.textContent = result.error || "Something went wrong. Please try again.";
+          }
         }
       } catch (err) {
-        errorDiv.textContent = "Server error. Try again.";
+        errorDiv.textContent = "Unable to connect to the server. Please try again.";
       }
     });
   </script>
