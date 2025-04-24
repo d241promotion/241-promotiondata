@@ -21,7 +21,7 @@
       height: 0;
       border-left: 25px solid transparent;
       border-right: 25px solid transparent;
-      border-bottom: 50px solid red; /* now pointing down */
+      border-bottom: 50px solid red;
       position: absolute;
       top: -25px;
       left: 50%;
@@ -99,7 +99,7 @@
       const prizeIndex = Math.floor(Math.random() * prizes.length);
       const selectedPrize = prizes[prizeIndex];
 
-      // Align prize at top but redirect before spin stops
+      // Spin wheel
       const spins = 5 + Math.floor(Math.random() * 3);
       const stopAngle = prizeIndex * arc;
       const extraRotation = (360 - stopAngle + 270) % 360;
@@ -107,7 +107,7 @@
       canvas.style.transition = 'transform 4s ease-out';
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
-      // Redirect before spin ends
+      // Redirect BEFORE it visibly stops
       setTimeout(() => {
         window.location.href = `/thankyou.html?prize=${encodeURIComponent(selectedPrize)}`;
       }, 1000);
