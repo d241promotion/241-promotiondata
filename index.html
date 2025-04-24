@@ -53,17 +53,21 @@
       const formData = new FormData(form);
       const data = Object.fromEntries(formData.entries());
 
-      const response = await fetch('/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
+      try {
+        const response = await fetch('/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
 
-      const result = await response.json();
-      if (result.success) {
-        window.location.href = '/wheel.html';
-      } else {
-        errorDiv.textContent = result.error || "Something went wrong.";
+        const result = await response.json();
+        if (result.success) {
+          window.location.href = '/wheel.html';
+        } else {
+          errorDiv.textContent = result.error || "Something went wrong.";
+        }
+      } catch (err) {
+        errorDiv.textContent = "Server error. Try again.";
       }
     });
   </script>
