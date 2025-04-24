@@ -1,70 +1,141 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Thank You</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;600&display=swap" rel="stylesheet" />
+  <title>You Won!</title>
   <style>
     body {
-      font-family: 'Poppins', sans-serif;
-      background-image: url('new images/bg.jpg');
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
+      font-family: 'Poppins', Arial, sans-serif;
+      background: url('new images/aigen.jpg') center/cover no-repeat fixed;
+      background-color: #FFE8D6;
       text-align: center;
+      padding: 0;
+      margin: 0;
+      position: relative;
+      overflow-x: hidden;
+      color: #333;
+      line-height: 1.6;
+    }
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+    }
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      background: white;
+      padding: 40px;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      border: 4px dashed #E63946;
+      position: relative;
+      z-index: 1;
+      animation: fadeIn 1s ease-in;
+    }
+    .pizza-slices {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%;
+      max-width: 400px;
+      z-index: 0;
+      opacity: 0.3; /* Slight transparency to blend with the container */
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     h1 {
-      color: #e63946;
-      font-size: 2.5em;
-      margin-bottom: 0.5em;
+      color: #E63946;
+      font-weight: bold;
+      font-size: 2.8em;
+      margin-bottom: 10px;
+      position: relative;
+      z-index: 1;
     }
-    .prize {
-      font-size: 1.5em;
-      color: #2a2a2a;
-      margin-bottom: 1em;
+    h2 {
+      color: #F4A261;
+      font-size: 1.8em;
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
+    }
+    p {
+      font-size: 1.2em;
+      color: #666;
+      position: relative;
+      z-index: 1;
+    }
+    .cta-button {
+      background: #E63946;
+      color: white;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.2em;
+      font-weight: bold;
+      display: inline-block;
+      text-decoration: none;
+      margin: 10px 0;
+      transition: background 0.3s;
+      position: relative;
+      z-index: 1;
+    }
+    .cta-button:hover {
+      background: #F4A261;
     }
     .share-buttons {
       display: flex;
-      flex-direction: column;
-      gap: 12px;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 20px;
+      position: relative;
+      z-index: 1;
     }
     .share-button {
-      padding: 12px 24px;
-      background-color: #e63946;
-      color: white;
-      text-decoration: none;
+      color: #E63946;
       font-size: 1em;
-      border-radius: 6px;
-      transition: background-color 0.3s ease;
+      text-decoration: none;
+      font-weight: bold;
+      transition: color 0.3s;
     }
     .share-button:hover {
-      background-color: #d62828;
+      color: #F4A261;
+    }
+    @media (max-width: 600px) {
+      .container { padding: 20px; }
+      h1 { font-size: 2em; }
+      h2 { font-size: 1.5em; }
+      .pizza-slices { width: 60%; }
     }
   </style>
 </head>
 <body>
-  <h1>🎉 Thank You for Participating!</h1>
-  <div class="prize" id="result">Checking your prize...</div>
-  <div class="share-buttons">
-    <a href="https://241pizza.com" target="_blank" class="share-button">Visit 241 Pizza</a>
-    <a href="https://www.instagram.com/241pizzawinston" target="_blank" class="share-button">Follow us on Instagram</a>
-    <a href="https://search.google.com/local/writereview?placeid=YOUR_PLACE_ID" target="_blank" class="share-button">Google Review</a>
+  <div class="container">
+    <!-- <img src="new images/pizza-slices.png" alt="Pizza Slices" class="pizza-slices"> -->
+    <h1>🎉 Congratulations, <span id="name"></span>!</h1>
+    <h2>You won: <span id="prize"></span></h2>
+    <p>Show this screen at 241 Pizza to claim your prize!</p>
+    <a href="https://241pizza.com" class="cta-button">Claim Prize!</a><br>
+    <div class="share-buttons">
+      <a href="https://twitter.com/241pizzawinston" target="_blank" class="share-button">Follow us on X</a>
+      <a href="https://www.instagram.com/241pizzawinston" target="_blank" class="share-button">Follow us on Instagram</a>
+    </div>
   </div>
+
   <script>
     const params = new URLSearchParams(window.location.search);
-    const prize = params.get('prize');
-    const result = document.getElementById('result');
-    result.textContent = prize
-      ? `You won: ${decodeURIComponent(prize)}!`
-      : "Thanks for participating!";
+    const prize = params.get('prize') || 'No Prize';
+    const name = params.get('name') || 'Guest';
+
+    document.getElementById('prize').textContent = prize;
+    document.getElementById('name').textContent = name;
   </script>
 </body>
 </html>
