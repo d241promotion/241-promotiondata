@@ -21,7 +21,7 @@
       height: 0;
       border-left: 25px solid transparent;
       border-right: 25px solid transparent;
-      border-bottom: 50px solid red; /* Pointing down from top */
+      border-bottom: 50px solid red; /* now pointing down */
       position: absolute;
       top: -25px;
       left: 50%;
@@ -97,17 +97,20 @@
 
     document.getElementById('spin-btn').addEventListener('click', () => {
       const prizeIndex = Math.floor(Math.random() * prizes.length);
-      const spins = 5 + Math.floor(Math.random() * 3); // 5-7 full spins
-      const stopAngle = prizeIndex * arc;
-      const extraRotation = (360 - stopAngle + 270) % 360; // Align prize at top
-      const totalRotation = spins * 360 + extraRotation;
+      const selectedPrize = prizes[prizeIndex];
 
+      // Align prize at top but redirect before spin stops
+      const spins = 5 + Math.floor(Math.random() * 3);
+      const stopAngle = prizeIndex * arc;
+      const extraRotation = (360 - stopAngle + 270) % 360;
+      const totalRotation = spins * 360 + extraRotation;
+      canvas.style.transition = 'transform 4s ease-out';
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
+      // Redirect before spin ends
       setTimeout(() => {
-        const selectedPrize = prizes[prizeIndex];
         window.location.href = `/thankyou.html?prize=${encodeURIComponent(selectedPrize)}`;
-      }, 4000);
+      }, 1000);
     });
   </script>
 </body>
