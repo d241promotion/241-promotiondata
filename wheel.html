@@ -69,7 +69,7 @@
     const centerY = canvas.height / 2;
     const radius = centerX;
 
-    // ✅ Your actual clockwise prize layout (starting from top)
+    // ✅ Visual clockwise order from top
     const prizes = ["Free Can", "Free Cookie", "Free Dip", "Free Chipsbag"];
     const colors = ["#FFD60A", "#FF70A6", "#00F5D4", "#FF9F1C"];
     const arc = 360 / prizes.length;
@@ -110,7 +110,7 @@
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        // ✅ Get visual angle from DOM transform matrix
+        // ✅ Read actual visual angle from DOM transform
         const transform = getComputedStyle(canvas).transform;
         let angleDeg = 0;
 
@@ -123,12 +123,9 @@
 
         if (angleDeg < 0) angleDeg += 360;
 
-        // ✅ Adjust for pointer at 0° (top), drawing starts at -90°
+        // ✅ Pointer is at top (0°), wheel draws from -90°
         const pointerAngle = (angleDeg + 90) % 360;
-        const rawIndex = Math.floor(pointerAngle / arc);
-
-        // ✅ REAL FIX — subtract 1 segment to correct pointer position
-        const prizeIndex = (rawIndex - 1 + prizes.length) % prizes.length;
+        const prizeIndex = Math.floor(pointerAngle / arc) % prizes.length;
         const prize = prizes[prizeIndex];
 
         console.log("🎯 DOM Angle:", angleDeg);
