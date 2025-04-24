@@ -69,10 +69,13 @@
     const centerY = canvas.height / 2;
     const radius = centerX;
 
-    // ✅ Reordered to match your visual: Chipsbag → Can → Cookie → Dip
-    const prizes = ['Free Chipsbag', 'Free Can', 'Free Cookie', 'Free Dip'];
-    const colors = ['#FF9F1C', '#FFD60A', '#FF70A6', '#00F5D4'];
+    // ✅ Final correct visual segment order
+    const prizes = ['Free Chipsbag', 'Free Dip', 'Free Cookie', 'Free Can'];
+    const colors = ['#FF9F1C', '#00F5D4', '#FF70A6', '#FFD60A'];
     const arc = 360 / prizes.length;
+
+    // ✅ Track last prize to avoid repeats
+    let lastPrizeIndex = null;
 
     function drawWheel() {
       const arcRad = 2 * Math.PI / prizes.length;
@@ -103,16 +106,31 @@
     drawWheel();
 
     document.getElementById('spin-btn').addEventListener('click', () => {
-      const spins = Math.floor(Math.random() * 4) + 5; // 5–8 full rotations
-      const extraRotation = Math.floor(Math.random() * 360);
-      const totalRotation = spins * 360 + extraRotation;
+      const spins = Math.floor(Math.random() * 4) + 5;
+      let extraRotation = Math.floor(Math.random() * 360);
+      let totalRotation = spins * 360 + extraRotation;
+
+      // Initial calculation
+      let normalizedRotation = totalRotation % 360;
+      let angleAtPointer = (normalizedRotation + 90) % 360;
+      let prizeIndex = Math.floor(angleAtPointer / arc);
+
+      // ✅ Avoid repeating the last prize
+      let retries = 0;
+      while (prizeIndex === lastPrizeIndex && retries < 5) {
+        extraRotation = Math.floor(Math.random() * 360);
+        totalRotation = spins * 360 + extraRotation;
+        normalizedRotation = totalRotation % 360;
+        angleAtPointer = (normalizedRotation + 90) % 360;
+        prizeIndex = Math.floor(angleAtPointer / arc);
+        retries++;
+      }
+
+      lastPrizeIndex = prizeIndex;
 
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
       setTimeout(() => {
-        const normalizedRotation = totalRotation % 360;
-        const angleAtPointer = (normalizedRotation + 90) % 360;
-        const prizeIndex = Math.floor(angleAtPointer / arc);
         const prize = prizes[prizeIndex];
 
         console.log("Rotation:", normalizedRotation);
