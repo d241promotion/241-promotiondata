@@ -99,7 +99,7 @@
       const prizeIndex = Math.floor(Math.random() * prizes.length);
       const selectedPrize = prizes[prizeIndex];
 
-      // Spin wheel
+      // Spin logic
       const spins = 5 + Math.floor(Math.random() * 3);
       const stopAngle = prizeIndex * arc;
       const extraRotation = (360 - stopAngle + 270) % 360;
@@ -107,7 +107,7 @@
       canvas.style.transition = 'transform 4s ease-out';
       canvas.style.transform = `rotate(${totalRotation}deg)`;
 
-      // Redirect BEFORE it visibly stops
+      // Redirect before spin ends
       setTimeout(() => {
         window.location.href = `/thankyou.html?prize=${encodeURIComponent(selectedPrize)}`;
       }, 1000);
