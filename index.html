@@ -56,10 +56,13 @@
       const data = Object.fromEntries(formData.entries());
 
       const phoneRegex = /^\d{10}$/;
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-      if (!emailRegex.test(data.email)) {
-        errorDiv.textContent = "Please enter a valid email address.";
+      const email = data.email.trim();
+      console.log(`Validating email: "${email}"`);
+      if (!emailRegex.test(email)) {
+        console.log(`Email validation failed for: "${email}"`);
+        errorDiv.textContent = "Please enter a valid email address (e.g., user@example.com).";
         return;
       }
 
