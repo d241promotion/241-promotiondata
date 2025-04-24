@@ -75,7 +75,9 @@
 
     function drawWheel() {
       const arcRad = 2 * Math.PI / prizes.length;
-      const startAngle = -Math.PI / 2;
+
+      // ✅ Rotate drawing one segment back
+      const startAngle = -Math.PI / 2 - arcRad;
 
       for (let i = 0; i < prizes.length; i++) {
         const angle = startAngle + i * arcRad;
@@ -123,12 +125,11 @@
 
         const pointerAngle = (angleDeg + 90) % 360;
 
-        // ✅ ONE-LINE FIX: subtract 1 segment to align pointer correctly
-        const rawIndex = Math.floor(pointerAngle / arc);
-        const prizeIndex = (rawIndex - 1 + prizes.length) % prizes.length;
+        // ✅ No adjustment needed now — this matches pointer perfectly
+        const prizeIndex = Math.floor(pointerAngle / arc);
         const prize = prizes[prizeIndex];
 
-        console.log("🎯 Angle:", angleDeg);
+        console.log("🎯 DOM Angle:", angleDeg);
         console.log("🎯 Pointer Angle:", pointerAngle);
         console.log("🏆 Prize Index:", prizeIndex);
         console.log("🎁 Prize:", prize);
