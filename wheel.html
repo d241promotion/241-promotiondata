@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Spin the Wheel!</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;600&display=swap" rel="stylesheet" />
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -21,11 +22,11 @@
       height: 0;
       border-left: 25px solid transparent;
       border-right: 25px solid transparent;
-      border-bottom: 50px solid red; /* this points the arrow downward */
+      border-bottom: 50px solid red; /* Points the tip downward */
       position: absolute;
       top: -25px;
       left: 50%;
-      transform: translateX(-50%);
+      transform: translateX(-50%) rotate(0deg);
       z-index: 2;
     }
     .wheel-wrapper {
@@ -108,7 +109,7 @@
 
       setTimeout(() => {
         window.location.href = `/thankyou.html?prize=${encodeURIComponent(selectedPrize)}`;
-      }, 1000);
+      }, 4000); // Increased timeout to 4s to match animation duration
     });
   </script>
 </body>
