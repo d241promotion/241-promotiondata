@@ -147,6 +147,21 @@ app.post('/submit', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Missing required fields' });
   }
 
+  // Server-side email validation
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|co|io|me|biz)$/i;
+  if (!emailRegex.test(email)) {
+    console.log('Validation failed: Invalid email address');
+    return res.status(400).json({ success: false, error: 'Invalid email address' });
+  }
+
+  // Additional check for common misspellings
+  const domain = email.split('@')[1].toLowerCase();
+  const commonMisspellings = ['gmil.com', 'gail.com', 'gmai.com', 'gnail.com'];
+  if (commonMisspellings.includes(domain)) {
+    console.log(`Detected common email domain misspelling: ${domain}`);
+    return res.status(400).json({ success: false, error: 'Did you mean "gmail.com"? Please correct your email address.' });
+  }
+
   if (!/^\d{10}$/.test(phone)) {
     console.log('Validation failed: Invalid phone number');
     return res.status(400).json({ success: false, error: 'Invalid phone number (10 digits required)' });
