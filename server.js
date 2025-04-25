@@ -174,6 +174,58 @@ async function createBackup() {
   }
 }
 
+// Download the Excel file from Google Drive
+async function downloadFromGoogleDrive() {
+  try {
+    const response = await drive.files.list({
+      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
+      fields: 'files(id)',
+    });
+
+    if (response.data.files.length > 0) {
+      const fileId = response.data.files[0].id;
+      const file = await drive.files.get(
+        { fileId, alt: 'media' },
+        { responseType: 'stream' }
+      );
+
+      await new Promise((resolve, reject) => {
+        const dest = require('fs').createWriteStream(LOCAL_EXCEL_FILE);
+        file.data
+          .on('error', reject)
+          .pipe(dest)
+          .on('error', reject)
+          .on('finish', resolve);
+      });
+      console.log('Downloaded Excel file from Google Drive to local:', LOCAL_EXCEL_FILE);
+
+      // Validate the downloaded file
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+      const isValid = await validateWorkbook(workbook);
+      if (!isValid) {
+        console.log('Downloaded file from Google Drive is corrupted, initializing new one');
+        throw new Error('Downloaded file is corrupted');
+      }
+
+      // Update the local backup after downloading
+      await createBackup();
+    } else {
+      console.log('No Excel file found in Google Drive, initializing new one locally.');
+      const workbook = await initializeExcel();
+      await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      await createBackup();
+    }
+  } catch (error) {
+    console.error('Error downloading from Google Drive:', error.message, error.stack);
+    const workbook = await initializeExcel();
+    await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+    await createBackup();
+  }
+}
+
 // Upload the local Excel file to Google Drive
 async function uploadToGoogleDrive() {
   try {
@@ -267,49 +319,7 @@ async function initializeFromGoogleDrive() {
     console.log('Local backup not found or invalid, proceeding with Google Drive initialization:', error.message);
   }
 
-  try {
-    const response = await drive.files.list({
-      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
-      fields: 'files(id)',
-    });
-
-    if (response.data.files.length > 0) {
-      const fileId = response.data.files[0].id;
-      const file = await drive.files.get(
-        { fileId, alt: 'media' },
-        { responseType: 'stream' }
-      );
-
-      await new Promise((resolve, reject) => {
-        const dest = require('fs').createWriteStream(LOCAL_EXCEL_FILE);
-        file.data
-          .on('error', reject)
-          .pipe(dest)
-          .on('error', reject)
-          .on('finish', resolve);
-      });
-      console.log('Downloaded Excel file from Google Drive to local:', LOCAL_EXCEL_FILE);
-
-      // Validate the downloaded file
-      workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-      const isValid = await validateWorkbook(workbook);
-      if (!isValid) {
-        console.log('Downloaded file from Google Drive is corrupted, initializing new one');
-        throw new Error('Downloaded file is corrupted');
-      }
-    } else {
-      console.log('No Excel file found in Google Drive, initializing new one locally.');
-      workbook = await initializeExcel();
-      await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-    }
-  } catch (error) {
-    console.error('Error initializing from Google Drive:', error.message, error.stack);
-    workbook = await initializeExcel();
-    await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-  }
+  await downloadFromGoogleDrive();
 }
 
 // Helper function to generate the duplicate error message
@@ -357,15 +367,16 @@ app.post('/submit', async (req, res) => {
     let submissionResult;
     fileLockPromise = fileLockPromise.then(async () => {
       try {
+        // Sync with Google Drive to get the latest file before checking duplicates
+        console.log('Syncing with Google Drive before duplicate check...');
+        await downloadFromGoogleDrive();
+
         let workbook;
         let sheet;
-        let existingData = [];
 
         try {
           workbook = await loadLocalExcel();
           sheet = workbook.getWorksheet('Customers');
-          // Extract existing data before proceeding
-          existingData = await extractExistingData(workbook);
         } catch (loadError) {
           console.error('Failed to load Excel file, forcing recreation:', loadError.message, loadError.stack);
           // Force recreation of the file if loading fails
@@ -399,32 +410,12 @@ app.post('/submit', async (req, res) => {
         } catch (rowError) {
           console.error('Error accessing rows, likely corrupted file:', rowError.message, rowError.stack);
           // If accessing rows fails (e.g., Out of bounds error), recreate the file
-          // Re-extract existing data if possible
-          existingData = await extractExistingData(workbook);
           workbook = await initializeExcel();
           sheet = workbook.getWorksheet('Customers');
-          // Re-add existing data
-          if (existingData.length > 0) {
-            existingData.forEach(rowData => {
-              const newRow = sheet.addRow(rowData);
-              newRow.commit();
-              console.log('Re-added existing row during recreation:', rowData);
-            });
-          } else {
-            console.warn('No existing data could be extracted due to corruption; previous data may be lost');
-          }
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
           console.log('Recreated Excel file due to row access error:', LOCAL_EXCEL_FILE);
-          // Since the file was recreated, duplicate check is already done via existingData
-          emailExists = existingData.some(row => row[1].toLowerCase() === email.toLowerCase());
-          phoneExists = existingData.some(row => row[2].toString() === phone.toString());
-          if (emailExists || phoneExists) {
-            console.log('Duplicate check (existingData) - Email exists:', emailExists, 'Phone exists:', phoneExists);
-            const errorMessage = getDuplicateErrorMessage(emailExists, phoneExists);
-            submissionResult = { status: 400, body: { success: false, error: errorMessage } };
-            return;
-          }
+          // No need to re-check duplicates since the file is now empty
         }
 
         const newRow = sheet.addRow([name, email, phone]);
@@ -438,7 +429,7 @@ app.post('/submit', async (req, res) => {
         } catch (writeError) {
           console.error('Failed to write to Excel file, attempting to recreate:', writeError.message, writeError.stack);
           // If writing fails, recreate the file and retry
-          existingData = await extractExistingData(workbook);
+          const existingData = await extractExistingData(workbook);
           workbook = await initializeExcel();
           const retrySheet = workbook.getWorksheet('Customers');
           // Re-add existing data
