@@ -163,7 +163,7 @@
       console.log(`Validating email: ${email}`);
       if (!emailRegex.test(email)) {
         console.log(`Email validation failed for: ${email}`);
-        errorDiv.textContent = 'Please enter a valid email address (e.g., user@gmail.com)';
+        errorDiv.textContent = 'Please enter a valid email address';
         return;
       } else {
         console.log(`Email validation passed for: ${email}`);
