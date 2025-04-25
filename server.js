@@ -11,7 +11,6 @@ const PORT = process.env.PORT || 3000;
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1l4e6cq0LaFS2IFkJlWKLFJ_CVIEqPqTK';
 
-// Simple locking mechanism to prevent concurrent file access
 let isFileLocked = false;
 
 const auth = new google.auth.GoogleAuth({
@@ -50,7 +49,7 @@ async function checkDiskSpaceAndPermissions(filePath) {
       console.log(`File ${filePath} is readable and writable`);
     } catch (error) {
       console.log(`File ${filePath} not accessible, attempting to fix permissions`);
-      await fs.chmod(filePath, 0o666);
+      await fs.chmod durdurur(filePath, 0o666);
       console.log(`Permissions fixed for ${filePath}`);
     }
   } catch (error) {
@@ -84,13 +83,19 @@ async function loadLocalExcel() {
 
 // Upload the local Excel file to Google Drive
 async function uploadToGoogleDrive() {
-  if (isFileLocked) {
-    console.log('File is locked, skipping Google Drive sync');
-    return;
-  }
-
   isFileLocked = true;
   try {
+    // Verify the local file exists and is not empty
+    const stats = await fs.stat(LOCAL_EXCEL_FILE);
+    if (stats.size === 0) {
+      throw new Error('Local Excel file is empty');
+    }
+    console.log('Local Excel file size:', stats.size, 'bytes');
+
+    // Verify Google Drive authentication
+    const authClient = await auth.getClient();
+    console.log('Google Drive authentication successful:', !!authClient);
+
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
     const existingFiles = await drive.files.list({
       q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
@@ -126,7 +131,7 @@ async function uploadToGoogleDrive() {
     }
   } catch (error) {
     console.error('Failed to upload to Google Drive:', error.message, error.stack);
-    throw error;
+    throw error; // Re-throw the error to be caught in /submit
   } finally {
     isFileLocked = false;
   }
@@ -252,6 +257,13 @@ app.post('/submit', async (req, res) => {
       await uploadToGoogleDrive();
     } catch (syncError) {
       console.error('Google Drive sync failed after local write:', syncError.message, syncError.stack);
+      // Inform the user of the sync failure, but allow the submission to succeed
+      res.status(200).json({ 
+        success: true, 
+        name, 
+        warning: 'Data saved locally, but failed to sync to Google Drive. Please contact support.'
+      });
+      return;
     }
 
     res.status(200).json({ success: true, name });
