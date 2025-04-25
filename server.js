@@ -7,7 +7,7 @@ const { google } = require('googleapis');
 const disk = require('diskusage');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1l4e6cq0LaFS2IFkJlWKLFJ_CVIEqPqTK';
 
@@ -67,8 +67,23 @@ async function loadLocalExcel() {
     workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
     console.log('Loaded local Excel file:', LOCAL_EXCEL_FILE);
+
+    // Verify the worksheet structure
+    const sheet = workbook.getWorksheet('Customers');
+    if (!sheet) {
+      throw new Error('Customers worksheet not found');
+    }
+
+    const headers = sheet.getRow(1).values;
+    console.log('Worksheet headers:', headers);
+    const expectedHeaders = ['Name', 'Email', 'Phone'];
+    const actualHeaders = headers.slice(1, 4); // Ignore first empty cell, take first 3 headers
+    const headersValid = expectedHeaders.every((header, index) => header === actualHeaders[index]);
+    if (!headersValid) {
+      throw new Error(`Invalid worksheet headers. Expected ${expectedHeaders}, got ${actualHeaders}`);
+    }
   } catch (error) {
-    console.log('Local Excel file not found, inaccessible, or corrupted, initializing new one:', error.message);
+    console.log('Local Excel file not found, inaccessible, or invalid, initializing new one:', error.message);
     workbook = await initializeExcel();
     try {
       await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
@@ -239,17 +254,27 @@ app.post('/submit', async (req, res) => {
 
         let emailExists = false;
         let phoneExists = false;
-        sheet.eachRow((row, rowNumber) => {
-          if (rowNumber === 1) return;
-          const existingEmail = row.getCell('email').value;
-          const existingPhone = row.getCell('phone').value;
-          if (existingEmail && existingEmail.toLowerCase() === email.toLowerCase()) {
-            emailExists = true;
-          }
-          if (existingPhone && existingPhone.toString() === phone.toString()) {
-            phoneExists = true;
-          }
-        });
+        try {
+          sheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return;
+            const existingEmail = row.getCell('email').value;
+            const existingPhone = row.getCell('phone').value;
+            if (existingEmail && existingEmail.toLowerCase() === email.toLowerCase()) {
+              emailExists = true;
+            }
+            if (existingPhone && existingPhone.toString() === phone.toString()) {
+              phoneExists = true;
+            }
+          });
+        } catch (rowError) {
+          console.error('Error accessing rows, likely corrupted file:', rowError.message, rowError.stack);
+          // If accessing rows fails (e.g., Out of bounds error), recreate the file
+          workbook = await initializeExcel();
+          await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          console.log('Recreated Excel file due to row access error:', LOCAL_EXCEL_FILE);
+          // Since the file was recreated, there are no duplicates
+        }
 
         if (emailExists || phoneExists) {
           console.log(`Duplicate found - Email exists: ${emailExists}, Phone exists: ${phoneExists}`);
@@ -309,6 +334,9 @@ app.post('/submit', async (req, res) => {
       res.status(500).json({ success: false, error: 'File permission error. Please contact support.' });
     } else if (error.message.includes('Corrupt')) {
       console.log('Excel file appears to be corrupted, already recreated in main flow.');
+      res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
+    } else if (error.message.includes('Out of bounds')) {
+      console.log('Excel file has invalid column structure, already recreated in main flow.');
       res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
     } else {
       res.status(500).json({ success: false, error: 'Unable to save your submission. Please try again later.' });
