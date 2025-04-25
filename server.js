@@ -23,6 +23,8 @@ app.use(express.static(__dirname));
 async function initializeExcel() {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Customers');
+  // Define the columns for the Excel file - only Name, Email, and Phone are included
+  // Prize data is not included here and will not be saved
   sheet.columns = [
     { header: 'Name', key: 'name', width: 20 },
     { header: 'Email', key: 'email', width: 30 },
@@ -170,6 +172,30 @@ app.post('/submit', async (req, res) => {
   try {
     const workbook = await loadLocalExcel();
     const sheet = workbook.getWorksheet('Customers');
+
+    // Check for duplicate email or phone
+    let emailExists = false;
+    let phoneExists = false;
+    sheet.eachRow((row, rowNumber) => {
+      // Skip the header row (rowNumber 1)
+      if (rowNumber === 1) return;
+      const existingEmail = row.getCell('email').value;
+      const existingPhone = row.getCell('phone').value;
+      if (existingEmail && existingEmail.toLowerCase() === email.toLowerCase()) {
+        emailExists = true;
+      }
+      if (existingPhone && existingPhone.toString() === phone.toString()) {
+        phoneExists = true;
+      }
+    });
+
+    if (emailExists || phoneExists) {
+      console.log(`Duplicate found - Email exists: ${emailExists}, Phone exists: ${phoneExists}`);
+      return res.status(400).json({ success: false, error: 'Details already exist' });
+    }
+
+    // Save only name, email, and phone to the Excel file
+    // Prize data is not received from the client and is not saved here
     const newRow = sheet.addRow([name, email, phone]);
     newRow.commit();
 
