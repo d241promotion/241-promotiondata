@@ -43,25 +43,23 @@
       font-size: 2em;
       margin: 20px 0;
     }
+    p {
+      color: #FFFFFF;
+      font-size: 1.2em;
+      margin: 10px 0;
+    }
     .social-links {
       margin-top: 30px;
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 20px;
+      flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
     }
     .social-links a {
       display: inline-block;
     }
-    .social-links img {
-      width: 40px;
-      height: 40px;
-      transition: transform 0.3s;
-    }
-    .social-links img:hover {
-      transform: scale(1.1);
-    }
-    .google-review-btn {
+    .social-links .btn {
       background: #E63946;
       color: white;
       padding: 15px 30px;
@@ -73,14 +71,14 @@
       text-decoration: none;
       transition: background 0.3s;
     }
-    .google-review-btn:hover {
+    .social-links .btn:hover {
       background: #F4A261;
     }
     @media (max-width: 600px) {
       h1 { font-size: 2em; }
       h2 { font-size: 1.5em; }
-      .social-links img { width: 30px; height: 30px; }
-      .google-review-btn { font-size: 1em; padding: 10px 20px; }
+      p { font-size: 1em; }
+      .social-links .btn { font-size: 1em; padding: 10px 20px; }
     }
   </style>
 </head>
@@ -88,9 +86,14 @@
   <div class="container">
     <h1>Congratulations, <span id="user-name">Guest</span>! 🎉</h1>
     <h2>You’ve Won: <span id="prize">Nothing</span>!</h2>
+    <p>Show this screen to 241 to claim your prize</p>
     <div class="social-links">
-      <a href="https://instagram.com" target="_blank"><img src="new images/instagram-icon.png" alt="Instagram"></a>
-      <a href="https://g.page/r/GOOGLE_REVIEW_ID/review" target="_blank" class="google-review-btn">Leave a Google Review</a>
+      <!-- Replace the URL below with the actual Instagram link for 24/1 Pizza -->
+      <a href="https://instagram.com" target="_blank" class="btn">Follow us on Instagram</a>
+      <!-- Replace the URL below with the actual Google Review link for 24/1 Pizza -->
+      <a href="https://g.page/r/GOOGLE_REVIEW_ID/review" target="_blank" class="btn">Leave a Google Review</a>
+      <!-- Replace the URL below with the actual 24/1 Pizza website URL -->
+      <a href="https://241pizza.com" target="_blank" class="btn">Visit 241 Page</a>
     </div>
   </div>
 
