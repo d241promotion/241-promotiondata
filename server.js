@@ -348,7 +348,7 @@ app.post('/submit', async (req, res) => {
       try {
         let workbook;
         let sheet;
-        let existingData = [];
+ odpowiednie let existingData = [];
 
         try {
           workbook = await loadLocalExcel();
@@ -406,7 +406,15 @@ app.post('/submit', async (req, res) => {
 
         if (emailExists || phoneExists) {
           console.log(`Duplicate found - Email exists: ${emailExists}, Phone exists: ${phoneExists}`);
-          submissionResult = { status: 400, body: { success: false, error: 'Details already exist' } };
+          let errorMessage;
+          if (emailExists && phoneExists) {
+            errorMessage = 'Email and phone number already exist';
+          } else if (emailExists) {
+            errorMessage = 'Email already exists';
+          } else {
+            errorMessage = 'Phone number already exists';
+          }
+          submissionResult = { status: 400, body: { success: false, error: errorMessage } };
           return;
         }
 
