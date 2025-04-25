@@ -312,6 +312,17 @@ async function initializeFromGoogleDrive() {
   }
 }
 
+// Helper function to generate the duplicate error message
+function getDuplicateErrorMessage(emailExists, phoneExists) {
+  if (emailExists && phoneExists) {
+    return 'Email and phone number already exist';
+  } else if (emailExists) {
+    return 'Email already exists';
+  } else {
+    return 'Phone number already exists';
+  }
+}
+
 // Handle form submission
 app.post('/submit', async (req, res) => {
   const { name, email, phone } = req.body;
@@ -348,7 +359,7 @@ app.post('/submit', async (req, res) => {
       try {
         let workbook;
         let sheet;
- odpowiednie let existingData = [];
+        let existingData = [];
 
         try {
           workbook = await loadLocalExcel();
@@ -379,6 +390,12 @@ app.post('/submit', async (req, res) => {
               phoneExists = true;
             }
           });
+          if (emailExists || phoneExists) {
+            console.log('Duplicate check (sheet.eachRow) - Email exists:', emailExists, 'Phone exists:', phoneExists);
+            const errorMessage = getDuplicateErrorMessage(emailExists, phoneExists);
+            submissionResult = { status: 400, body: { success: false, error: errorMessage } };
+            return;
+          }
         } catch (rowError) {
           console.error('Error accessing rows, likely corrupted file:', rowError.message, rowError.stack);
           // If accessing rows fails (e.g., Out of bounds error), recreate the file
@@ -402,20 +419,12 @@ app.post('/submit', async (req, res) => {
           // Since the file was recreated, duplicate check is already done via existingData
           emailExists = existingData.some(row => row[1].toLowerCase() === email.toLowerCase());
           phoneExists = existingData.some(row => row[2].toString() === phone.toString());
-        }
-
-        if (emailExists || phoneExists) {
-          console.log(`Duplicate found - Email exists: ${emailExists}, Phone exists: ${phoneExists}`);
-          let errorMessage;
-          if (emailExists && phoneExists) {
-            errorMessage = 'Email and phone number already exist';
-          } else if (emailExists) {
-            errorMessage = 'Email already exists';
-          } else {
-            errorMessage = 'Phone number already exists';
+          if (emailExists || phoneExists) {
+            console.log('Duplicate check (existingData) - Email exists:', emailExists, 'Phone exists:', phoneExists);
+            const errorMessage = getDuplicateErrorMessage(emailExists, phoneExists);
+            submissionResult = { status: 400, body: { success: false, error: errorMessage } };
+            return;
           }
-          submissionResult = { status: 400, body: { success: false, error: errorMessage } };
-          return;
         }
 
         const newRow = sheet.addRow([name, email, phone]);
