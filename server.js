@@ -239,18 +239,19 @@ app.post('/submit', async (req, res) => {
     fileLockPromise = fileLockPromise.then(async () => {
       try {
         let workbook;
+        let sheet;
         try {
           workbook = await loadLocalExcel();
+          sheet = workbook.getWorksheet('Customers');
         } catch (loadError) {
           console.error('Failed to load Excel file, forcing recreation:', loadError.message, loadError.stack);
           // Force recreation of the file if loading fails
           workbook = await initializeExcel();
+          sheet = workbook.getWorksheet('Customers');
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
           console.log('Forced recreation of Excel file:', LOCAL_EXCEL_FILE);
         }
-
-        const sheet = workbook.getWorksheet('Customers');
 
         let emailExists = false;
         let phoneExists = false;
@@ -270,6 +271,7 @@ app.post('/submit', async (req, res) => {
           console.error('Error accessing rows, likely corrupted file:', rowError.message, rowError.stack);
           // If accessing rows fails (e.g., Out of bounds error), recreate the file
           workbook = await initializeExcel();
+          sheet = workbook.getWorksheet('Customers'); // Update sheet to the new worksheet
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
           console.log('Recreated Excel file due to row access error:', LOCAL_EXCEL_FILE);
@@ -284,6 +286,7 @@ app.post('/submit', async (req, res) => {
 
         const newRow = sheet.addRow([name, email, phone]);
         newRow.commit();
+        console.log('Added new row to worksheet:', [name, email, phone]);
 
         await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
         try {
