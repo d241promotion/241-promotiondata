@@ -145,10 +145,12 @@
   </div>
 
   <script>
-    console.log("Updated validation script loaded - 2025-04-24");
+    console.log("Validation Script Loaded - Version 3 (2025-04-24) - Stricter Email Check");
 
     document.getElementById('customer-form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      console.log("Form submission initiated");
+
       const submitBtn = document.getElementById('submit-btn');
       const errorDiv = document.getElementById('error');
       const loadingDiv = document.getElementById('loading');
@@ -158,15 +160,25 @@
       const email = document.getElementById('email').value.trim();
       const phone = document.getElementById('phone').value.trim();
 
-      // Email validation regex: Ensures valid email format with common TLDs
+      console.log(`Input Values - Name: ${name}, Email: ${email}, Phone: ${phone}`);
+
+      // Email validation regex: Ensures valid email format with specific TLDs
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|co|io|me|biz)$/i;
       console.log(`Validating email: ${email}`);
       if (!emailRegex.test(email)) {
         console.log(`Email validation failed for: ${email}`);
-        errorDiv.textContent = 'Please enter a valid email address';
+        errorDiv.textContent = 'Please check the email address';
         return;
-      } else {
-        console.log(`Email validation passed for: ${email}`);
+      }
+      console.log(`Email validation passed for: ${email}`);
+
+      // Additional check for common misspellings
+      const domain = email.split('@')[1].toLowerCase();
+      const commonMisspellings = ['gmil.com', 'gail.com', 'gmai.com', 'gnail.com'];
+      if (commonMisspellings.includes(domain)) {
+        console.log(`Detected common email domain misspelling: ${domain}`);
+        errorDiv.textContent = 'Please check the email address';
+        return;
       }
 
       // Phone validation: Ensures 10 digits
@@ -175,12 +187,14 @@
         errorDiv.textContent = 'Please enter a valid 10-digit phone number';
         return;
       }
+      console.log(`Phone validation passed for: ${phone}`);
 
       console.log("All validations passed, proceeding with submission");
       submitBtn.disabled = true;
       loadingDiv.style.display = 'block'; // Show loading indicator
 
       try {
+        console.log("Sending POST request to /submit");
         const response = await fetch('/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -188,21 +202,27 @@
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Server error: ${response.status} - ${errorText}`);
+          console.log(`Server returned status: ${response.status}`);
+          errorDiv.textContent = 'Please check the email address'; // Simplified error message for all server errors related to email
+          loadingDiv.style.display = 'none';
+          return;
         }
 
         const result = await response.json();
         if (result.success) {
-          console.log("Submission successful, redirecting...");
+          console.log("Submission successful, redirecting to wheel.html");
           const redirectUrl = `wheel.html?name=${encodeURIComponent(name)}`;
           window.location.href = redirectUrl;
         } else {
-          throw new Error(result.error || 'Submission failed');
+          console.log("Submission failed:", result.error);
+          errorDiv.textContent = result.error === 'Invalid phone number (10 digits required)' 
+            ? 'Please enter a valid 10-digit phone number' 
+            : 'Please check the email address'; // Handle specific server-side errors
+          loadingDiv.style.display = 'none';
         }
       } catch (error) {
         console.log("Submission error:", error.message);
-        errorDiv.textContent = error.message || 'An error occurred. Please try again.';
+        errorDiv.textContent = 'An error occurred. Please try again.';
         loadingDiv.style.display = 'none';
       } finally {
         submitBtn.disabled = false;
