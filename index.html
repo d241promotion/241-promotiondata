@@ -145,7 +145,7 @@
   </div>
 
   <script>
-    console.log("Validation Script Loaded - Version 3 (2025-04-24) - Stricter Email Check");
+    console.log("Validation Script Loaded - Version 4 (2025-04-24) - Improved Error Handling");
 
     document.getElementById('customer-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -201,23 +201,21 @@
           body: JSON.stringify({ name, email, phone }),
         });
 
-        if (!response.ok) {
-          console.log(`Server returned status: ${response.status}`);
-          errorDiv.textContent = 'Please check the email address'; // Simplified error message for all server errors related to email
-          loadingDiv.style.display = 'none';
-          return;
-        }
+        const result = await response.json(); // Always parse the response body
 
-        const result = await response.json();
-        if (result.success) {
+        if (response.ok && result.success) {
           console.log("Submission successful, redirecting to wheel.html");
           const redirectUrl = `wheel.html?name=${encodeURIComponent(name)}`;
           window.location.href = redirectUrl;
         } else {
-          console.log("Submission failed:", result.error);
+          console.log(`Submission failed with status ${response.status}:`, result.error);
           errorDiv.textContent = result.error === 'Invalid phone number (10 digits required)' 
             ? 'Please enter a valid 10-digit phone number' 
-            : 'Please check the email address'; // Handle specific server-side errors
+            : result.error === 'Details already exist' 
+            ? 'Details already exist' 
+            : result.error === 'Please check the email address' 
+            ? 'Please check the email address' 
+            : 'An error occurred. Please try again.'; // Fallback for unexpected errors
           loadingDiv.style.display = 'none';
         }
       } catch (error) {
