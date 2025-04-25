@@ -49,7 +49,7 @@ async function checkDiskSpaceAndPermissions(filePath) {
       console.log(`File ${filePath} is readable and writable`);
     } catch (error) {
       console.log(`File ${filePath} not accessible, attempting to fix permissions`);
-      await fs.chmod durdurur(filePath, 0o666);
+      await fs.chmod(filePath, 0o666); // Fixed typo: removed 'durdurur'
       console.log(`Permissions fixed for ${filePath}`);
     }
   } catch (error) {
@@ -131,7 +131,7 @@ async function uploadToGoogleDrive() {
     }
   } catch (error) {
     console.error('Failed to upload to Google Drive:', error.message, error.stack);
-    throw error; // Re-throw the error to be caught in /submit
+    throw error;
   } finally {
     isFileLocked = false;
   }
@@ -257,7 +257,6 @@ app.post('/submit', async (req, res) => {
       await uploadToGoogleDrive();
     } catch (syncError) {
       console.error('Google Drive sync failed after local write:', syncError.message, syncError.stack);
-      // Inform the user of the sync failure, but allow the submission to succeed
       res.status(200).json({ 
         success: true, 
         name, 
