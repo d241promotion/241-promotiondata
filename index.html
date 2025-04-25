@@ -145,7 +145,7 @@
   </div>
 
   <script>
-    console.log("Validation Script Loaded - Version 4 (2025-04-24) - Improved Error Handling");
+    console.log("Validation Script Loaded - Version 5 (2025-04-24) - Display Server Error Messages");
 
     document.getElementById('customer-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -215,12 +215,12 @@
             ? 'Details already exist' 
             : result.error === 'Please check the email address' 
             ? 'Please check the email address' 
-            : 'An error occurred. Please try again.'; // Fallback for unexpected errors
+            : result.error; // Display the server's error message directly
           loadingDiv.style.display = 'none';
         }
       } catch (error) {
         console.log("Submission error:", error.message);
-        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.textContent = 'Failed to connect to the server. Please try again later.';
         loadingDiv.style.display = 'none';
       } finally {
         submitBtn.disabled = false;
