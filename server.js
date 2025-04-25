@@ -151,7 +151,7 @@ app.post('/submit', async (req, res) => {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|co|io|me|biz)$/i;
   if (!emailRegex.test(email)) {
     console.log('Validation failed: Invalid email address');
-    return res.status(400).json({ success: false, error: 'Invalid email address' });
+    return res.status(400).json({ success: false, error: 'Please check the email address' });
   }
 
   // Additional check for common misspellings
@@ -159,7 +159,7 @@ app.post('/submit', async (req, res) => {
   const commonMisspellings = ['gmil.com', 'gail.com', 'gmai.com', 'gnail.com'];
   if (commonMisspellings.includes(domain)) {
     console.log(`Detected common email domain misspelling: ${domain}`);
-    return res.status(400).json({ success: false, error: 'Did you mean "gmail.com"? Please correct your email address.' });
+    return res.status(400).json({ success: false, error: 'Please check the email address' });
   }
 
   if (!/^\d{10}$/.test(phone)) {
