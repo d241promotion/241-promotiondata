@@ -145,6 +145,8 @@
   </div>
 
   <script>
+    console.log("Updated validation script loaded - 2025-04-24");
+
     document.getElementById('customer-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const submitBtn = document.getElementById('submit-btn');
@@ -156,19 +158,25 @@
       const email = document.getElementById('email').value.trim();
       const phone = document.getElementById('phone').value.trim();
 
-      // Email validation regex: Ensures valid email format
-      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      // Email validation regex: Ensures valid email format with common TLDs
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|co|io|me|biz)$/i;
+      console.log(`Validating email: ${email}`);
       if (!emailRegex.test(email)) {
+        console.log(`Email validation failed for: ${email}`);
         errorDiv.textContent = 'Please enter a valid email address (e.g., user@gmail.com)';
         return;
+      } else {
+        console.log(`Email validation passed for: ${email}`);
       }
 
       // Phone validation: Ensures 10 digits
       if (!/^\d{10}$/.test(phone)) {
+        console.log(`Phone validation failed for: ${phone}`);
         errorDiv.textContent = 'Please enter a valid 10-digit phone number';
         return;
       }
 
+      console.log("All validations passed, proceeding with submission");
       submitBtn.disabled = true;
       loadingDiv.style.display = 'block'; // Show loading indicator
 
@@ -186,12 +194,14 @@
 
         const result = await response.json();
         if (result.success) {
+          console.log("Submission successful, redirecting...");
           const redirectUrl = `wheel.html?name=${encodeURIComponent(name)}`;
           window.location.href = redirectUrl;
         } else {
           throw new Error(result.error || 'Submission failed');
         }
       } catch (error) {
+        console.log("Submission error:", error.message);
         errorDiv.textContent = error.message || 'An error occurred. Please try again.';
         loadingDiv.style.display = 'none';
       } finally {
