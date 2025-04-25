@@ -4,12 +4,15 @@ const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs').promises;
 const { google } = require('googleapis');
-const disk = require('diskusage'); // Add this dependency for disk space checks
+const disk = require('diskusage');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1l4e6cq0LaFS2IFkJlWKLFJ_CVIEqPqTK';
+
+// Simple locking mechanism to prevent concurrent file access
+let isFileLocked = false;
 
 const auth = new google.auth.GoogleAuth({
   credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT),
@@ -35,21 +38,19 @@ async function initializeExcel() {
 // Check disk space and file permissions
 async function checkDiskSpaceAndPermissions(filePath) {
   try {
-    // Check disk space
     const { available, total } = await disk.check(path.dirname(filePath));
     const availableMB = available / (1024 * 1024);
     console.log(`Available disk space: ${availableMB.toFixed(2)} MB`);
-    if (availableMB < 10) { // Require at least 10MB free space
+    if (availableMB < 10) {
       throw new Error(`Insufficient disk space: ${availableMB.toFixed(2)} MB available`);
     }
 
-    // Check file permissions
     try {
       await fs.access(filePath, fs.constants.R_OK | fs.constants.W_OK);
       console.log(`File ${filePath} is readable and writable`);
     } catch (error) {
       console.log(`File ${filePath} not accessible, attempting to fix permissions`);
-      await fs.chmod(filePath, 0o666); // Make file readable/writable
+      await fs.chmod(filePath, 0o666);
       console.log(`Permissions fixed for ${filePath}`);
     }
   } catch (error) {
@@ -67,14 +68,14 @@ async function loadLocalExcel() {
     await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
     console.log('Loaded local Excel file:', LOCAL_EXCEL_FILE);
   } catch (error) {
-    console.log('Local Excel file not found or inaccessible, initializing new one:', error.message);
+    console.log('Local Excel file not found, inaccessible, or corrupted, initializing new one:', error.message);
     workbook = await initializeExcel();
     try {
       await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
       await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
       console.log('Initialized new Excel file:', LOCAL_EXCEL_FILE);
     } catch (writeError) {
-      console.error('Failed to initialize new Excel file:', writeError.message);
+      console.error('Failed to initialize new Excel file:', writeError.message, writeError.stack);
       throw writeError;
     }
   }
@@ -83,6 +84,12 @@ async function loadLocalExcel() {
 
 // Upload the local Excel file to Google Drive
 async function uploadToGoogleDrive() {
+  if (isFileLocked) {
+    console.log('File is locked, skipping Google Drive sync');
+    return;
+  }
+
+  isFileLocked = true;
   try {
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
     const existingFiles = await drive.files.list({
@@ -118,8 +125,10 @@ async function uploadToGoogleDrive() {
       console.log('Created new file in Google Drive, ID:', file.data.id);
     }
   } catch (error) {
-    console.error('Failed to upload to Google Drive:', error.message);
+    console.error('Failed to upload to Google Drive:', error.message, error.stack);
     throw error;
+  } finally {
+    isFileLocked = false;
   }
 }
 
@@ -131,9 +140,9 @@ function startGoogleDriveSync() {
       await uploadToGoogleDrive();
       console.log('Periodic sync completed.');
     } catch (error) {
-      console.error('Periodic sync failed:', error.message);
+      console.error('Periodic sync failed:', error.message, error.stack);
     }
-  }, 5 * 60 * 1000); // 5 minutes
+  }, 5 * 60 * 1000);
 }
 
 // Download the Excel file from Google Drive on server start
@@ -167,7 +176,7 @@ async function initializeFromGoogleDrive() {
       await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     }
   } catch (error) {
-    console.error('Error initializing from Google Drive:', error.message);
+    console.error('Error initializing from Google Drive:', error.message, error.stack);
     const workbook = await initializeExcel();
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
@@ -203,6 +212,12 @@ app.post('/submit', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Invalid phone number (10 digits required)' });
   }
 
+  if (isFileLocked) {
+    console.log('File is locked, please try again later');
+    return res.status(503).json({ success: false, error: 'Server is busy, please try again later.' });
+  }
+
+  isFileLocked = true;
   try {
     const workbook = await loadLocalExcel();
     const sheet = workbook.getWorksheet('Customers');
@@ -233,12 +248,10 @@ app.post('/submit', async (req, res) => {
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
 
-    // Trigger Google Drive sync after successful local write
     try {
       await uploadToGoogleDrive();
     } catch (syncError) {
-      console.error('Google Drive sync failed after local write:', syncError.message);
-      // Continue with success response, as local save succeeded
+      console.error('Google Drive sync failed after local write:', syncError.message, syncError.stack);
     }
 
     res.status(200).json({ success: true, name });
@@ -248,9 +261,23 @@ app.post('/submit', async (req, res) => {
       res.status(500).json({ success: false, error: 'Server disk space is full. Please contact support.' });
     } else if (error.message.includes('Permission denied')) {
       res.status(500).json({ success: false, error: 'File permission error. Please contact support.' });
+    } else if (error.message.includes('Corrupt')) {
+      console.log('Excel file appears to be corrupted, attempting to recreate...');
+      try {
+        const workbook = await initializeExcel();
+        await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+        await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+        console.log('Recreated Excel file:', LOCAL_EXCEL_FILE);
+        res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
+      } catch (recreateError) {
+        console.error('Failed to recreate Excel file:', recreateError.message, recreateError.stack);
+        res.status(500).json({ success: false, error: 'Unable to save your submission. Please try again later.' });
+      }
     } else {
       res.status(500).json({ success: false, error: 'Unable to save your submission. Please try again later.' });
     }
+  } finally {
+    isFileLocked = false;
   }
 });
 
