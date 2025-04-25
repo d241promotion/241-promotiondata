@@ -23,8 +23,6 @@ app.use(express.static(__dirname));
 async function initializeExcel() {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Customers');
-  // Define the columns for the Excel file - only Name, Email, and Phone are included
-  // Prize data is not included here and will not be saved
   sheet.columns = [
     { header: 'Name', key: 'name', width: 20 },
     { header: 'Email', key: 'email', width: 30 },
@@ -177,8 +175,7 @@ app.post('/submit', async (req, res) => {
     let emailExists = false;
     let phoneExists = false;
     sheet.eachRow((row, rowNumber) => {
-      // Skip the header row (rowNumber 1)
-      if (rowNumber === 1) return;
+      if (rowNumber === 1) return; // Skip header row
       const existingEmail = row.getCell('email').value;
       const existingPhone = row.getCell('phone').value;
       if (existingEmail && existingEmail.toLowerCase() === email.toLowerCase()) {
@@ -195,7 +192,6 @@ app.post('/submit', async (req, res) => {
     }
 
     // Save only name, email, and phone to the Excel file
-    // Prize data is not received from the client and is not saved here
     const newRow = sheet.addRow([name, email, phone]);
     newRow.commit();
 
@@ -205,8 +201,8 @@ app.post('/submit', async (req, res) => {
 
     res.status(200).json({ success: true, name });
   } catch (error) {
-    console.error('Failed to save to local Excel:', error.message);
-    res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
+    console.error('Failed to save to local Excel:', error.message, error.stack); // Improved logging
+    res.status(500).json({ success: false, error: 'Unable to save your submission. Please try again later.' });
   }
 });
 
@@ -223,7 +219,7 @@ app.get('/download', async (req, res) => {
     const fileStream = require('fs').createReadStream(LOCAL_EXCEL_FILE);
     fileStream.pipe(res);
   } catch (error) {
-    console.error('Error downloading local file:', error.message);
+    console.error('Error downloading local file:', error.message, error.stack); // Improved logging
     res.status(500).send('Error downloading file');
   }
 });
