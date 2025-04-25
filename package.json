@@ -1,6 +1,7 @@
 {
-  "name": "pizza-spin",
+  "name": "pizza-spin-win",
   "version": "1.0.0",
+  "description": "Spin and Win app for 24/1 Pizza",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -9,6 +10,7 @@
     "express": "^4.18.2",
     "body-parser": "^1.20.2",
     "exceljs": "^4.4.0",
-    "googleapis": "^140.0.1"
+    "googleapis": "^144.0.0",
+    "diskusage": "^1.2.0"
   }
 }
