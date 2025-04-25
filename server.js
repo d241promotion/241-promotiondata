@@ -11,7 +11,8 @@ const PORT = process.env.PORT || 3000;
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1l4e6cq0LaFS2IFkJlWKLFJ_CVIEqPqTK';
 
-let isFileLocked = false;
+// Use a promise-based lock to prevent concurrent file access
+let fileLockPromise = Promise.resolve();
 
 const auth = new google.auth.GoogleAuth({
   credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT),
@@ -49,7 +50,7 @@ async function checkDiskSpaceAndPermissions(filePath) {
       console.log(`File ${filePath} is readable and writable`);
     } catch (error) {
       console.log(`File ${filePath} not accessible, attempting to fix permissions`);
-      await fs.chmod(filePath, 0o666); // Fixed typo: removed 'durdurur'
+      await fs.chmod(filePath, 0o666);
       console.log(`Permissions fixed for ${filePath}`);
     }
   } catch (error) {
@@ -83,7 +84,6 @@ async function loadLocalExcel() {
 
 // Upload the local Excel file to Google Drive
 async function uploadToGoogleDrive() {
-  isFileLocked = true;
   try {
     // Verify the local file exists and is not empty
     const stats = await fs.stat(LOCAL_EXCEL_FILE);
@@ -132,8 +132,6 @@ async function uploadToGoogleDrive() {
   } catch (error) {
     console.error('Failed to upload to Google Drive:', error.message, error.stack);
     throw error;
-  } finally {
-    isFileLocked = false;
   }
 }
 
@@ -142,7 +140,10 @@ function startGoogleDriveSync() {
   setInterval(async () => {
     try {
       console.log('Starting periodic sync with Google Drive...');
-      await uploadToGoogleDrive();
+      fileLockPromise = fileLockPromise.then(async () => {
+        await uploadToGoogleDrive();
+      });
+      await fileLockPromise;
       console.log('Periodic sync completed.');
     } catch (error) {
       console.error('Periodic sync failed:', error.message, error.stack);
@@ -217,55 +218,89 @@ app.post('/submit', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Invalid phone number (10 digits required)' });
   }
 
-  if (isFileLocked) {
-    console.log('File is locked, please try again later');
-    return res.status(503).json({ success: false, error: 'Server is busy, please try again later.' });
-  }
-
-  isFileLocked = true;
   try {
-    const workbook = await loadLocalExcel();
-    const sheet = workbook.getWorksheet('Customers');
+    // Use the lock to ensure exclusive access to the file
+    let submissionResult;
+    fileLockPromise = fileLockPromise.then(async () => {
+      try {
+        let workbook;
+        try {
+          workbook = await loadLocalExcel();
+        } catch (loadError) {
+          console.error('Failed to load Excel file, forcing recreation:', loadError.message, loadError.stack);
+          // Force recreation of the file if loading fails
+          workbook = await initializeExcel();
+          await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          console.log('Forced recreation of Excel file:', LOCAL_EXCEL_FILE);
+        }
 
-    let emailExists = false;
-    let phoneExists = false;
-    sheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-      const existingEmail = row.getCell('email').value;
-      const existingPhone = row.getCell('phone').value;
-      if (existingEmail && existingEmail.toLowerCase() === email.toLowerCase()) {
-        emailExists = true;
-      }
-      if (existingPhone && existingPhone.toString() === phone.toString()) {
-        phoneExists = true;
+        const sheet = workbook.getWorksheet('Customers');
+
+        let emailExists = false;
+        let phoneExists = false;
+        sheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
+          const existingEmail = row.getCell('email').value;
+          const existingPhone = row.getCell('phone').value;
+          if (existingEmail && existingEmail.toLowerCase() === email.toLowerCase()) {
+            emailExists = true;
+          }
+          if (existingPhone && existingPhone.toString() === phone.toString()) {
+            phoneExists = true;
+          }
+        });
+
+        if (emailExists || phoneExists) {
+          console.log(`Duplicate found - Email exists: ${emailExists}, Phone exists: ${phoneExists}`);
+          submissionResult = { status: 400, body: { success: false, error: 'Details already exist' } };
+          return;
+        }
+
+        const newRow = sheet.addRow([name, email, phone]);
+        newRow.commit();
+
+        await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+        try {
+          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
+        } catch (writeError) {
+          console.error('Failed to write to Excel file, attempting to recreate:', writeError.message, writeError.stack);
+          // If writing fails, recreate the file and retry
+          workbook = await initializeExcel();
+          const retrySheet = workbook.getWorksheet('Customers');
+          retrySheet.addRow([name, email, phone]).commit();
+          await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          console.log('Recreated and saved to Excel file after write failure:', LOCAL_EXCEL_FILE);
+        }
+
+        try {
+          await uploadToGoogleDrive();
+          submissionResult = { status: 200, body: { success: true, name } };
+        } catch (syncError) {
+          console.error('Google Drive sync failed after local write:', syncError.message, syncError.stack);
+          submissionResult = { 
+            status: 200, 
+            body: { 
+              success: true, 
+              name, 
+              warning: 'Data saved locally, but failed to sync to Google Drive. Please contact support.'
+            }
+          };
+        }
+      } catch (error) {
+        throw error; // Re-throw to be caught by the outer catch
       }
     });
 
-    if (emailExists || phoneExists) {
-      console.log(`Duplicate found - Email exists: ${emailExists}, Phone exists: ${phoneExists}`);
-      return res.status(400).json({ success: false, error: 'Details already exist' });
+    await fileLockPromise;
+
+    if (submissionResult) {
+      res.status(submissionResult.status).json(submissionResult.body);
+    } else {
+      throw new Error('Submission result not set');
     }
-
-    const newRow = sheet.addRow([name, email, phone]);
-    newRow.commit();
-
-    await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-    console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
-
-    try {
-      await uploadToGoogleDrive();
-    } catch (syncError) {
-      console.error('Google Drive sync failed after local write:', syncError.message, syncError.stack);
-      res.status(200).json({ 
-        success: true, 
-        name, 
-        warning: 'Data saved locally, but failed to sync to Google Drive. Please contact support.'
-      });
-      return;
-    }
-
-    res.status(200).json({ success: true, name });
   } catch (error) {
     console.error('Failed to save to local Excel:', error.message, error.stack);
     if (error.message.includes('Insufficient disk space')) {
@@ -273,22 +308,11 @@ app.post('/submit', async (req, res) => {
     } else if (error.message.includes('Permission denied')) {
       res.status(500).json({ success: false, error: 'File permission error. Please contact support.' });
     } else if (error.message.includes('Corrupt')) {
-      console.log('Excel file appears to be corrupted, attempting to recreate...');
-      try {
-        const workbook = await initializeExcel();
-        await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-        await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-        console.log('Recreated Excel file:', LOCAL_EXCEL_FILE);
-        res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
-      } catch (recreateError) {
-        console.error('Failed to recreate Excel file:', recreateError.message, recreateError.stack);
-        res.status(500).json({ success: false, error: 'Unable to save your submission. Please try again later.' });
-      }
+      console.log('Excel file appears to be corrupted, already recreated in main flow.');
+      res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
     } else {
       res.status(500).json({ success: false, error: 'Unable to save your submission. Please try again later.' });
     }
-  } finally {
-    isFileLocked = false;
   }
 });
 
