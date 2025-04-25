@@ -59,6 +59,32 @@ async function checkDiskSpaceAndPermissions(filePath) {
   }
 }
 
+// Extract existing data from the workbook if possible
+async function extractExistingData(workbook) {
+  const data = [];
+  try {
+    const sheet = workbook.getWorksheet('Customers');
+    if (!sheet) {
+      console.log('No Customers worksheet found for data extraction');
+      return data;
+    }
+
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // Skip header row
+      const name = row.getCell('name').value;
+      const email = row.getCell('email').value;
+      const phone = row.getCell('phone').value;
+      if (name && email && phone) {
+        data.push([name, email, phone]);
+      }
+    });
+    console.log('Extracted existing data:', data);
+  } catch (error) {
+    console.error('Failed to extract existing data:', error.message, error.stack);
+  }
+  return data;
+}
+
 // Load the local Excel file or initialize a new one
 async function loadLocalExcel() {
   let workbook;
@@ -240,9 +266,13 @@ app.post('/submit', async (req, res) => {
       try {
         let workbook;
         let sheet;
+        let existingData = [];
+
         try {
           workbook = await loadLocalExcel();
           sheet = workbook.getWorksheet('Customers');
+          // Extract existing data before proceeding
+          existingData = await extractExistingData(workbook);
         } catch (loadError) {
           console.error('Failed to load Excel file, forcing recreation:', loadError.message, loadError.stack);
           // Force recreation of the file if loading fails
@@ -270,12 +300,22 @@ app.post('/submit', async (req, res) => {
         } catch (rowError) {
           console.error('Error accessing rows, likely corrupted file:', rowError.message, rowError.stack);
           // If accessing rows fails (e.g., Out of bounds error), recreate the file
+          // Re-extract existing data if possible
+          existingData = await extractExistingData(workbook);
           workbook = await initializeExcel();
-          sheet = workbook.getWorksheet('Customers'); // Update sheet to the new worksheet
+          sheet = workbook.getWorksheet('Customers');
+          // Re-add existing data
+          existingData.forEach(rowData => {
+            const newRow = sheet.addRow(rowData);
+            newRow.commit();
+            console.log('Re-added existing row during recreation:', rowData);
+          });
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
           console.log('Recreated Excel file due to row access error:', LOCAL_EXCEL_FILE);
-          // Since the file was recreated, there are no duplicates
+          // Since the file was recreated, duplicate check is already done via existingData
+          emailExists = existingData.some(row => row[1].toLowerCase() === email.toLowerCase());
+          phoneExists = existingData.some(row => row[2].toString() === phone.toString());
         }
 
         if (emailExists || phoneExists) {
@@ -295,9 +335,19 @@ app.post('/submit', async (req, res) => {
         } catch (writeError) {
           console.error('Failed to write to Excel file, attempting to recreate:', writeError.message, writeError.stack);
           // If writing fails, recreate the file and retry
+          existingData = await extractExistingData(workbook);
           workbook = await initializeExcel();
           const retrySheet = workbook.getWorksheet('Customers');
-          retrySheet.addRow([name, email, phone]).commit();
+          // Re-add existing data
+          existingData.forEach(rowData => {
+            const newRow = retrySheet.addRow(rowData);
+            newRow.commit();
+            console.log('Re-added existing row after write failure:', rowData);
+          });
+          // Add the new row
+          const newRetryRow = retrySheet.addRow([name, email, phone]);
+          newRetryRow.commit();
+          console.log('Added new row after write failure:', [name, email, phone]);
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
           console.log('Recreated and saved to Excel file after write failure:', LOCAL_EXCEL_FILE);
