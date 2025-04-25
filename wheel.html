@@ -5,9 +5,8 @@
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
-      /* Updated to use the new image */
       background: url('new images/pizza with wings.jpg') center/cover no-repeat fixed;
-      background-color: #FFF9E5; /* Light pastel yellow as fallback */
+      background-color: #FFF9E5;
       text-align: center;
       padding: 0;
       margin: 0;
@@ -23,7 +22,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.5); /* Slightly darker overlay for better contrast with the new image */
+      background: rgba(0, 0, 0, 0.5);
     }
     .container {
       max-width: 600px;
@@ -78,13 +77,13 @@
       cursor: not-allowed;
     }
     h1 {
-      color: #FFFFFF; /* Changed to white for better contrast with the new background */
+      color: #FFFFFF;
       font-weight: bold;
       font-size: 2.8em;
       text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
     }
     #user-name {
-      color: #FFD60A; /* Bright yellow for better visibility */
+      color: #FFD60A;
     }
     @media (max-width: 600px) {
       .wheel-container { width: 300px; height: 300px; }
@@ -103,7 +102,6 @@
   </div>
 
   <script>
-    // Defer wheel rendering until the DOM is fully loaded
     document.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
       const name = params.get('name') || 'Guest';
@@ -115,7 +113,7 @@
 
       const canvas = document.getElementById('wheel');
       const ctx = canvas.getContext('2d');
-      const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C']; // Adjusted to 4 colors
+      const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C'];
       const radius = 225;
       const centerX = 225;
       const centerY = 225;
@@ -141,7 +139,7 @@
           ctx.translate(centerX, centerY);
           ctx.rotate(startAngle + arc / 2);
           ctx.textAlign = 'center';
-          ctx.fillStyle = '#333'; // Darker text for contrast
+          ctx.fillStyle = '#333';
           ctx.font = 'bold 18px Poppins';
           ctx.fillText(prizes[i], 120, 0);
           ctx.restore();
@@ -176,5 +174,5 @@
       document.getElementById('spin-btn').addEventListener('click', spinWheel);
     });
   </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93588ee3999b32f2',t:'MTc0NTUyODcyMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
