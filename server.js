@@ -673,7 +673,7 @@ app.post('/delete', async (req, res) => {
             await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
             console.log('Data saved to local Excel file after deletion:', LOCAL_EXCEL_FILE);
             fileWritten = true;
-          } retrying
+          } catch (writeError) {
             writeAttempts++;
             console.error(`Failed to write to Excel file after deletion (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
             if (writeAttempts === maxWriteAttempts) {
