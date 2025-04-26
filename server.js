@@ -400,28 +400,28 @@ function getDuplicateErrorMessage(emailExists, phoneExists) {
 app.post('/submit', async (req, res) => {
   const { name, email, phone } = req.body;
 
-  console.log('Received initial submission:', { name, email, phone });
+  console.log('SUBMIT: Received initial submission:', { name, email, phone });
 
   if (!name || !email || !phone) {
-    console.log('Validation failed: Missing required fields');
+    console.log('SUBMIT: Validation failed: Missing required fields');
     return res.status(400).json({ success: false, error: 'Missing required fields' });
   }
 
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|co|io|me|biz)$/i;
   if (!emailRegex.test(email)) {
-    console.log('Validation failed: Invalid email address');
+    console.log('SUBMIT: Validation failed: Invalid email address');
     return res.status(400).json({ success: false, error: 'Please check the email address' });
   }
 
   const domain = email.split('@')[1].toLowerCase();
   const commonMisspellings = ['gmil.com', 'gail.com', 'gmai.com', 'gnail.com'];
   if (commonMisspellings.includes(domain)) {
-    console.log(`Detected common email domain misspelling: ${domain}`);
+    console.log(`SUBMIT: Detected common email domain misspelling: ${domain}`);
     return res.status(400).json({ success: false, error: 'Please check the email address' });
   }
 
   if (!/^\d{10}$/.test(phone)) {
-    console.log('Validation failed: Invalid phone number');
+    console.log('SUBMIT: Validation failed: Invalid phone number');
     return res.status(400).json({ success: false, error: 'Invalid phone number (10 digits required)' });
   }
 
@@ -429,27 +429,30 @@ app.post('/submit', async (req, res) => {
     let submissionResult;
     fileLockPromise = fileLockPromise.then(async () => {
       try {
-        console.log('Syncing with Google Drive before duplicate check...');
+        console.log('SUBMIT: Syncing with Google Drive before duplicate check...');
         await downloadFromGoogleDrive();
 
         let workbook;
         let sheet;
 
+        console.log('SUBMIT: Loading local Excel file...');
         try {
           workbook = await loadLocalExcel();
           sheet = workbook.getWorksheet('Customers');
+          console.log('SUBMIT: Successfully loaded local Excel file:', LOCAL_EXCEL_FILE);
         } catch (loadError) {
-          console.error('Failed to load Excel file, forcing recreation:', loadError.message, loadError.stack);
+          console.error('SUBMIT: Failed to load Excel file, forcing recreation:', loadError.message, loadError.stack);
           workbook = await initializeExcel();
           sheet = workbook.getWorksheet('Customers');
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-          console.log('Forced recreation of Excel file:', LOCAL_EXCEL_FILE);
+          console.log('SUBMIT: Forced recreation of Excel file:', LOCAL_EXCEL_FILE);
         }
 
         let emailExists = false;
         let phoneExists = false;
         let existingData = [];
+        console.log('SUBMIT: Checking for duplicates...');
         try {
           existingData = await extractExistingData(workbook);
           const normalizedEmail = email.toLowerCase().trim();
@@ -463,9 +466,9 @@ app.post('/submit', async (req, res) => {
             const normalizedExistingEmail = existingEmail ? existingEmail.toString().toLowerCase().trim() : '';
             const normalizedExistingPhone = existingPhone ? existingPhone.toString().trim() : '';
 
-            console.log(`Row ${rowNumber} - Existing Email: '${normalizedExistingEmail}', Existing Phone: '${normalizedExistingPhone}'`);
-            console.log(`Comparing Email - Input: '${normalizedEmail}', Existing: '${normalizedExistingEmail}', Match: ${normalizedExistingEmail === normalizedEmail}`);
-            console.log(`Comparing Phone - Input: '${normalizedPhone}', Existing: '${normalizedExistingPhone}', Match: ${normalizedExistingPhone === normalizedPhone}`);
+            console.log(`SUBMIT: Row ${rowNumber} - Existing Email: '${normalizedExistingEmail}', Existing Phone: '${normalizedExistingPhone}'`);
+            console.log(`SUBMIT: Comparing Email - Input: '${normalizedEmail}', Existing: '${normalizedExistingEmail}', Match: ${normalizedExistingEmail === normalizedEmail}`);
+            console.log(`SUBMIT: Comparing Phone - Input: '${normalizedPhone}', Existing: '${normalizedExistingPhone}', Match: ${normalizedExistingPhone === normalizedPhone}`);
 
             if (normalizedExistingEmail && normalizedExistingEmail === normalizedEmail) {
               emailExists = true;
@@ -476,47 +479,52 @@ app.post('/submit', async (req, res) => {
           });
 
           if (emailExists || phoneExists) {
-            console.log('Duplicate check (sheet.eachRow) - Email exists:', emailExists, 'Phone exists:', phoneExists);
+            console.log('SUBMIT: Duplicate check - Email exists:', emailExists, 'Phone exists:', phoneExists);
             const errorMessage = getDuplicateErrorMessage(emailExists, phoneExists);
             submissionResult = { status: 400, body: { success: false, error: errorMessage } };
             return;
+          } else {
+            console.log('SUBMIT: No duplicates found, proceeding to add new row.');
           }
         } catch (rowError) {
-          console.error('Error accessing rows, likely corrupted file:', rowError.message, rowError.stack);
+          console.error('SUBMIT: Error accessing rows, likely corrupted file:', rowError.message, rowError.stack);
           workbook = await initializeExcel();
           sheet = workbook.getWorksheet('Customers');
           if (existingData.length > 0) {
             existingData.forEach(rowData => {
               const newRow = sheet.addRow(rowData);
               newRow.commit();
-              console.log('Re-added existing row during duplicate check recreation:', rowData);
+              console.log('SUBMIT: Re-added existing row during duplicate check recreation:', rowData);
             });
           } else {
-            console.warn('No existing data could be extracted due to corruption; previous data may be lost');
+            console.warn('SUBMIT: No existing data could be extracted due to corruption; previous data may be lost');
           }
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-          console.log('Recreated Excel file due to row access error:', LOCAL_EXCEL_FILE);
+          console.log('SUBMIT: Recreated Excel file due to row access error:', LOCAL_EXCEL_FILE);
         }
 
+        console.log('SUBMIT: Adding new row to worksheet...');
         const newRow = sheet.addRow([name, email, phone]);
         newRow.commit();
-        console.log('Added new row to worksheet:', [name, email, phone]);
+        console.log('SUBMIT: Added new row to worksheet:', [name, email, phone]);
 
+        console.log('SUBMIT: Checking disk space and permissions before saving...');
         await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
         let writeAttempts = 0;
         const maxWriteAttempts = 3;
         let fileWritten = false;
+        console.log('SUBMIT: Attempting to save Excel file...');
         while (writeAttempts < maxWriteAttempts && !fileWritten) {
           try {
             await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-            console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
+            console.log('SUBMIT: Data successfully saved to local Excel file:', LOCAL_EXCEL_FILE);
             fileWritten = true;
           } catch (writeError) {
             writeAttempts++;
-            console.error(`Failed to write to Excel file (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
+            console.error(`SUBMIT: Failed to write to Excel file (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
             if (writeAttempts === maxWriteAttempts) {
-              throw new Error('Failed to write to Excel file after maximum attempts');
+              throw new Error('SUBMIT: Failed to write to Excel file after maximum attempts');
             }
             // Wait before retrying
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -524,23 +532,26 @@ app.post('/submit', async (req, res) => {
         }
 
         // Verify the local file contents after saving
+        console.log('SUBMIT: Verifying file contents after save...');
         const updatedWorkbook = new ExcelJS.Workbook();
         await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
         const updatedSheet = updatedWorkbook.getWorksheet('Customers');
-        console.log('Local file contents after submission:');
+        console.log('SUBMIT: Local file contents after submission:');
         updatedSheet.eachRow((row, rowNumber) => {
           const rowName = row.getCell(1).value || '';
           const rowEmail = row.getCell(2).value || '';
           const rowPhone = row.getCell(3).value || '';
-          console.log(`Row ${rowNumber}:`, [rowName, rowEmail, rowPhone]);
+          console.log(`SUBMIT: Row ${rowNumber}:`, [rowName, rowEmail, rowPhone]);
         });
 
         localChangesPending = true; // Set flag to indicate local changes
+        console.log('SUBMIT: Attempting to upload to Google Drive...');
         try {
           await uploadToGoogleDrive();
+          console.log('SUBMIT: Successfully uploaded to Google Drive.');
           submissionResult = { status: 200, body: { success: true, name } };
         } catch (syncError) {
-          console.error('Google Drive sync failed after local write:', syncError.message, syncError.stack);
+          console.error('SUBMIT: Google Drive sync failed after local write:', syncError.message, syncError.stack);
           submissionResult = { 
             status: 200, 
             body: { 
@@ -558,21 +569,22 @@ app.post('/submit', async (req, res) => {
     await fileLockPromise;
 
     if (submissionResult) {
+      console.log('SUBMIT: Sending response:', submissionResult.body);
       res.status(submissionResult.status).json(submissionResult.body);
     } else {
-      throw new Error('Submission result not set');
+      throw new Error('SUBMIT: Submission result not set');
     }
   } catch (error) {
-    console.error('Failed to save to local Excel:', error.message, error.stack);
+    console.error('SUBMIT: Failed to save to local Excel:', error.message, error.stack);
     if (error.message.includes('Insufficient disk space')) {
       res.status(500).json({ success: false, error: 'Server disk space is full. Please contact support.' });
     } else if (error.message.includes('Permission denied')) {
       res.status(500).json({ success: false, error: 'File permission error. Please contact support.' });
     } else if (error.message.includes('Corrupt')) {
-      console.log('Excel file appears to be corrupted, already recreated in main flow.');
+      console.log('SUBMIT: Excel file appears to be corrupted, already recreated in main flow.');
       res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
     } else if (error.message.includes('Out of bounds')) {
-      console.log('Excel file has invalid column structure, already recreated in main flow.');
+      console.log('SUBMIT: Excel file has invalid column structure, already recreated in main flow.');
       res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
     } else {
       res.status(500).json({ success: false, error: 'Unable to save your submission. Please try again later.' });
@@ -584,10 +596,10 @@ app.post('/submit', async (req, res) => {
 app.post('/delete', async (req, res) => {
   const { email, phone } = req.body;
 
-  console.log('Received delete request:', { email, phone });
+  console.log('DELETE: Received delete request:', { email, phone });
 
   if (!email && !phone) {
-    console.log('Validation failed: Email or phone required for deletion');
+    console.log('DELETE: Validation failed: Email or phone required for deletion');
     return res.status(400).json({ success: false, error: 'Email or phone required for deletion' });
   }
 
@@ -595,26 +607,29 @@ app.post('/delete', async (req, res) => {
     let deletionResult;
     fileLockPromise = fileLockPromise.then(async () => {
       try {
-        console.log('Syncing with Google Drive before deletion...');
+        console.log('DELETE: Syncing with Google Drive before deletion...');
         await downloadFromGoogleDrive();
 
         let workbook;
         let sheet;
 
+        console.log('DELETE: Loading local Excel file...');
         try {
           workbook = await loadLocalExcel();
           sheet = workbook.getWorksheet('Customers');
+          console.log('DELETE: Successfully loaded local Excel file:', LOCAL_EXCEL_FILE);
         } catch (loadError) {
-          console.error('Failed to load Excel file for deletion, forcing recreation:', loadError.message, loadError.stack);
+          console.error('DELETE: Failed to load Excel file for deletion, forcing recreation:', loadError.message, loadError.stack);
           workbook = await initializeExcel();
           sheet = workbook.getWorksheet('Customers');
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-          console.log('Forced recreation of Excel file for deletion:', LOCAL_EXCEL_FILE);
+          console.log('DELETE: Forced recreation of Excel file for deletion:', LOCAL_EXCEL_FILE);
           deletionResult = { status: 404, body: { success: false, error: 'No data to delete after file recreation' } };
           return;
         }
 
+        console.log('DELETE: Checking for matching rows to delete...');
         let rowFound = false;
         const rowsToKeep = [];
         rowsToKeep.push(sheet.getRow(1).values);
@@ -634,7 +649,7 @@ app.post('/delete', async (req, res) => {
           const phoneMatch = normalizedPhone && normalizedExistingPhone === normalizedPhone;
 
           if (emailMatch || phoneMatch) {
-            console.log(`Found matching row ${rowNumber} to delete:`, [row.getCell(1).value, normalizedExistingEmail, normalizedExistingPhone]);
+            console.log(`DELETE: Found matching row ${rowNumber} to delete:`, [row.getCell(1).value, normalizedExistingEmail, normalizedExistingPhone]);
             rowFound = true;
           } else {
             rowsToKeep.push(row.values);
@@ -642,14 +657,15 @@ app.post('/delete', async (req, res) => {
         });
 
         if (!rowFound) {
-          console.log('No matching row found for deletion');
+          console.log('DELETE: No matching row found for deletion');
           deletionResult = { status: 404, body: { success: false, error: 'Customer not found' } };
           return;
         }
 
-        console.log('Rows to keep after deletion:', rowsToKeep);
+        console.log('DELETE: Rows to keep after deletion:', rowsToKeep);
 
         // Recreate the sheet with remaining rows
+        console.log('DELETE: Recreating worksheet with remaining rows...');
         workbook.removeWorksheet('Customers');
         const newSheet = workbook.addWorksheet('Customers');
         newSheet.columns = [
@@ -661,23 +677,25 @@ app.post('/delete', async (req, res) => {
         rowsToKeep.forEach((rowValues, index) => {
           const newRow = newSheet.addRow(rowValues);
           newRow.commit();
-          console.log(`Re-added row ${index + 1} after deletion:`, rowValues);
+          console.log(`DELETE: Re-added row ${index + 1} after deletion:`, rowValues);
         });
 
+        console.log('DELETE: Checking disk space and permissions before saving...');
         await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
         let writeAttempts = 0;
         const maxWriteAttempts = 3;
         let fileWritten = false;
+        console.log('DELETE: Attempting to save Excel file after deletion...');
         while (writeAttempts < maxWriteAttempts && !fileWritten) {
           try {
             await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-            console.log('Data saved to local Excel file after deletion:', LOCAL_EXCEL_FILE);
+            console.log('DELETE: Data successfully saved to local Excel file after deletion:', LOCAL_EXCEL_FILE);
             fileWritten = true;
           } catch (writeError) {
             writeAttempts++;
-            console.error(`Failed to write to Excel file after deletion (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
+            console.error(`DELETE: Failed to write to Excel file after deletion (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
             if (writeAttempts === maxWriteAttempts) {
-              throw new Error('Failed to write to Excel file after maximum attempts');
+              throw new Error('DELETE: Failed to write to Excel file after maximum attempts');
             }
             // Wait before retrying
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -685,23 +703,26 @@ app.post('/delete', async (req, res) => {
         }
 
         // Verify the local file contents after saving
+        console.log('DELETE: Verifying file contents after deletion...');
         const updatedWorkbook = new ExcelJS.Workbook();
         await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
         const updatedSheet = updatedWorkbook.getWorksheet('Customers');
-        console.log('Local file contents after deletion:');
+        console.log('DELETE: Local file contents after deletion:');
         updatedSheet.eachRow((row, rowNumber) => {
           const name = row.getCell(1).value || '';
           const email = row.getCell(2).value || '';
           const phone = row.getCell(3).value || '';
-          console.log(`Row ${rowNumber}:`, [name, email, phone]);
+          console.log(`DELETE: Row ${rowNumber}:`, [name, email, phone]);
         });
 
         localChangesPending = true; // Set flag to indicate local changes
+        console.log('DELETE: Attempting to upload to Google Drive...');
         try {
           await uploadToGoogleDrive();
+          console.log('DELETE: Successfully uploaded to Google Drive.');
           deletionResult = { status: 200, body: { success: true, message: 'Customer deleted successfully' } };
         } catch (syncError) {
-          console.error('Google Drive sync failed after deletion:', syncError.message, syncError.stack);
+          console.error('DELETE: Google Drive sync failed after deletion:', syncError.message, syncError.stack);
           deletionResult = { 
             status: 200, 
             body: { 
@@ -718,18 +739,19 @@ app.post('/delete', async (req, res) => {
     await fileLockPromise;
 
     if (deletionResult) {
+      console.log('DELETE: Sending response:', deletionResult.body);
       res.status(deletionResult.status).json(deletionResult.body);
     } else {
-      throw new Error('Deletion result not set');
+      throw new Error('DELETE: Deletion result not set');
     }
   } catch (error) {
-    console.error('Failed to delete customer:', error.message, error.stack);
+    console.error('DELETE: Failed to delete customer:', error.message, error.stack);
     if (error.message.includes('Insufficient disk space')) {
       res.status(500).json({ success: false, error: 'Server disk space is full. Please contact support.' });
     } else if (error.message.includes('Permission denied')) {
       res.status(500).json({ success: false, error: 'File permission error. Please contact support.' });
     } else if (error.message.includes('Corrupt')) {
-      console.log('Excel file appears to be corrupted, already recreated in main flow.');
+      console.log('DELETE: Excel file appears to be corrupted, already recreated in main flow.');
       res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
     } else {
       res.status(500).json({ success: false, error: 'Unable to delete customer. Please try again later.' });
@@ -742,24 +764,28 @@ app.get('/download', async (req, res) => {
   try {
     const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
     if (!fileExists) {
+      console.log('DOWNLOAD: No customer data available yet');
       return res.status(404).send('No customer data available yet');
     }
 
+    console.log('DOWNLOAD: Sending Excel file to client...');
     res.setHeader('Content-Disposition', 'attachment; filename=customers.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     const fileStream = require('fs').createReadStream(LOCAL_EXCEL_FILE);
     fileStream.pipe(res);
+    console.log('DOWNLOAD: File stream initiated.');
   } catch (error) {
-    console.error('Error downloading local file:', error.message, error.stack);
+    console.error('DOWNLOAD: Error downloading local file:', error.message, error.stack);
     res.status(500).send('Error downloading file');
   }
 });
 
 // Initialize the server
 (async () => {
+  console.log('SERVER: Initializing server and syncing with Google Drive...');
   await initializeFromGoogleDrive();
   startGoogleDriveSync();
   app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`SERVER: Server running on port ${PORT}`);
   });
 })();
