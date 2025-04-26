@@ -33,6 +33,8 @@ async function initializeExcel() {
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
   ];
+  // Verify column keys are set
+  console.log('Initialized worksheet columns:', sheet.columns.map(col => ({ header: col.header, key: col.key })));
   return workbook;
 }
 
@@ -105,26 +107,17 @@ async function extractExistingData(workbook) {
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return; // Skip header row
       try {
-        // Try accessing cells by key first
-        const name = row.getCell('name').value;
-        const email = row.getCell('email').value;
-        const phone = row.getCell('phone').value;
+        // Use numeric indices to avoid column key issues
+        const name = row.getCell(1).value;
+        const email = row.getCell(2).value;
+        const phone = row.getCell(3).value;
         if (name && email && phone) {
           data.push([name, email, phone]);
+        } else {
+          console.warn(`Row ${rowNumber} has missing data:`, [name, email, phone]);
         }
       } catch (error) {
-        console.warn('Failed to extract row using keys, trying column indices:', error.message);
-        // Fallback to column indices
-        try {
-          const name = row.getCell(1).value;
-          const email = row.getCell(2).value;
-          const phone = row.getCell(3).value;
-          if (name && email && phone) {
-            data.push([name, email, phone]);
-          }
-        } catch (indexError) {
-          console.error('Failed to extract row using indices:', indexError.message, indexError.stack);
-        }
+        console.error(`Failed to extract row ${rowNumber}:`, error.message, error.stack);
       }
     });
     console.log('Extracted existing data:', data);
@@ -237,14 +230,19 @@ async function downloadFromGoogleDrive() {
       // Log the contents of the file after downloading
       const sheet = workbook.getWorksheet('Customers');
       console.log('File contents after sync:');
+      console.log('Column keys:', sheet.columns.map(col => col.key));
       sheet.eachRow((row, rowNumber) => {
         if (rowNumber === 1) {
           console.log('Headers:', row.values);
         } else {
-          const name = row.getCell('name').value || '';
-          const email = row.getCell('email').value || '';
-          const phone = row.getCell('phone').value || '';
-          console.log('Row ' + rowNumber + ':', [name, email, phone]);
+          try {
+            const name = row.getCell(1).value || '';
+            const email = row.getCell(2).value || '';
+            const phone = row.getCell(3).value || '';
+            console.log('Row ' + rowNumber + ':', [name, email, phone]);
+          } catch (error) {
+            console.error(`Failed to log row ${rowNumber}:`, error.message, error.stack);
+          }
         }
       });
 
@@ -453,8 +451,8 @@ app.post('/submit', async (req, res) => {
 
           sheet.eachRow((row, rowNumber) => {
             if (rowNumber === 1) return;
-            const existingEmail = row.getCell('email').value;
-            const existingPhone = row.getCell('phone').value;
+            const existingEmail = row.getCell(2).value;
+            const existingPhone = row.getCell(3).value;
 
             // Normalize existing values for comparison
             const normalizedExistingEmail = existingEmail ? existingEmail.toString().toLowerCase().trim() : '';
@@ -506,98 +504,85 @@ app.post('/submit', async (req, res) => {
         try {
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
           console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
-        } catch (writeError) {
-          console.error('Failed to write to Excel file, attempting to recreate:', writeError.message, writeError.stack);
-          // If writing fails, recreate the file and retry
-          existingData = await extractExistingData(workbook);
-          workbook = await initializeExcel();
-          const retrySheet = workbook.getWorksheet('Customers');
-          // Re-add existing data
-          if (existingData.length > 0) {
-            existingData.forEach(rowData => {
-              const newRow = retrySheet.addRow(rowData);
-              newRow.commit();
-              console.log('Re-added existing row after write failure:', rowData);
-            });
-          } else {
-            console.warn('No existing data could be extracted due to corruption; previous data may be lost');
-          }
-          // Add the new row
-          const newRetryRow = retrySheet.addRow([name, email, phone]);
-          newRetryRow.commit();
-          console.log('Added new row after write failure:', [name, email, phone]);
-          await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-          console.log('Recreated and saved to Excel file after write failure:', LOCAL_EXCEL_FILE);
+        } else {
+          console.warn('No existing data could be extracted due to corruption; previous data may be lost');
         }
-
-        try {
-          await uploadToGoogleDrive();
-          submissionResult = { status: 200, body: { success: true, name } };
-        } catch (syncError) {
-          console.error('Google Drive sync failed after local write:', syncError.message, syncError.stack);
-          submissionResult = { 
-            status: 200, 
-            body: { 
-              success: true, 
-              name, 
-              warning: 'Data saved locally, but failed to sync to Google Drive. Please contact support.'
-            }
-          };
-        }
-      } catch (error) {
-        throw error; // Re-throw to be caught by the outer catch
+        // Add the new row
+        const newRetryRow = retrySheet.addRow([name, email, phone]);
+        newRetryRow.commit();
+        console.log('Added new row after write failure:', [name, email, phone]);
+        await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+        await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+        console.log('Recreated and saved to Excel file after write failure:', LOCAL_EXCEL_FILE);
       }
-    });
 
-    await fileLockPromise;
+      try {
+        await uploadToGoogleDrive();
+        submissionResult = { status: 200, body: { success: true, name } };
+      } catch (syncError) {
+        console.error('Google Drive sync failed after local write:', syncError.message, syncError.stack);
+        submissionResult = { 
+          status: 200, 
+          body: { 
+            success: true, 
+            name, 
+            warning: 'Data saved locally, but failed to sync to Google Drive. Please contact support.'
+          }
+        };
+      }
+    } catch (error) {
+      throw error; // Re-throw to be caught by the outer catch
+    }
+  });
 
-    if (submissionResult) {
-      res.status(submissionResult.status).json(submissionResult.body);
-    } else {
-      throw new Error('Submission result not set');
-    }
-  } catch (error) {
-    console.error('Failed to save to local Excel:', error.message, error.stack);
-    if (error.message.includes('Insufficient disk space')) {
-      res.status(500).json({ success: false, error: 'Server disk space is full. Please contact support.' });
-    } else if (error.message.includes('Permission denied')) {
-      res.status(500).json({ success: false, error: 'File permission error. Please contact support.' });
-    } else if (error.message.includes('Corrupt')) {
-      console.log('Excel file appears to be corrupted, already recreated in main flow.');
-      res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
-    } else if (error.message.includes('Out of bounds')) {
-      console.log('Excel file has invalid column structure, already recreated in main flow.');
-      res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
-    } else {
-      res.status(500).json({ success: false, error: 'Unable to save your submission. Please try again later.' });
-    }
+  await fileLockPromise;
+
+  if (submissionResult) {
+    res.status(submissionResult.status).json(submissionResult.body);
+  } else {
+    throw new Error('Submission result not set');
   }
+} catch (error) {
+  console.error('Failed to save to local Excel:', error.message, error.stack);
+  if (error.message.includes('Insufficient disk space')) {
+    res.status(500).json({ success: false, error: 'Server disk space is full. Please contact support.' });
+  } else if (error.message.includes('Permission denied')) {
+    res.status(500).json({ success: false, error: 'File permission error. Please contact support.' });
+  } else if (error.message.includes('Corrupt')) {
+    console.log('Excel file appears to be corrupted, already recreated in main flow.');
+    res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
+  } else if (error.message.includes('Out of bounds')) {
+    console.log('Excel file has invalid column structure, already recreated in main flow.');
+    res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
+  } else {
+    res.status(500).json({ success: false, error: 'Unable to save your submission. Please try again later.' });
+  }
+}
 });
 
 // Handle file download
 app.get('/download', async (req, res) => {
-  try {
-    const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
-    if (!fileExists) {
-      return res.status(404).send('No customer data available yet');
-    }
-
-    res.setHeader('Content-Disposition', 'attachment; filename=customers.xlsx');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    const fileStream = require('fs').createReadStream(LOCAL_EXCEL_FILE);
-    fileStream.pipe(res);
-  } catch (error) {
-    console.error('Error downloading local file:', error.message, error.stack);
-    res.status(500).send('Error downloading file');
+try {
+  const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+  if (!fileExists) {
+    return res.status(404).send('No customer data available yet');
   }
+
+  res.setHeader('Content-Disposition', 'attachment; filename=customers.xlsx');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  const fileStream = require('fs').createReadStream(LOCAL_EXCEL_FILE);
+  fileStream.pipe(res);
+} catch (error) {
+  console.error('Error downloading local file:', error.message, error.stack);
+  res.status(500).send('Error downloading file');
+}
 });
 
 // Initialize the server
 (async () => {
-  await initializeFromGoogleDrive();
-  startGoogleDriveSync();
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+await initializeFromGoogleDrive();
+startGoogleDriveSync();
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 })();
