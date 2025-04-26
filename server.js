@@ -257,57 +257,67 @@ async function downloadFromGoogleDrive() {
   }
 }
 
-// Upload the local Excel file to Google Drive
-async function uploadToGoogleDrive() {
-  try {
-    const stats = await fs.stat(LOCAL_EXCEL_FILE);
-    if (stats.size === 0) {
-      throw new Error('Local Excel file is empty');
-    }
-    console.log('Local Excel file size:', stats.size, 'bytes');
+// Upload the local Excel file to Google Drive with retry
+async function uploadToGoogleDrive(maxRetries = 3) {
+  let retries = 0;
+  while (retries < maxRetries) {
+    try {
+      const stats = await fs.stat(LOCAL_EXCEL_FILE);
+      if (stats.size === 0) {
+        throw new Error('Local Excel file is empty');
+      }
+      console.log('Local Excel file size:', stats.size, 'bytes');
 
-    await createBackup();
+      await createBackup();
 
-    const authClient = await auth.getClient();
-    console.log('Google Drive authentication successful:', !!authClient);
+      const authClient = await auth.getClient();
+      console.log('Google Drive authentication successful:', !!authClient);
 
-    await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-    const existingFiles = await drive.files.list({
-      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
-      fields: 'files(id, name)',
-    });
-
-    const fileMetadata = {
-      name: 'customers.xlsx',
-      parents: [GOOGLE_DRIVE_FOLDER_ID],
-    };
-
-    const media = {
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      body: require('fs').createReadStream(LOCAL_EXCEL_FILE),
-    };
-
-    let file;
-    if (existingFiles.data.files.length > 0) {
-      const fileId = existingFiles.data.files[0].id;
-      file = await drive.files.update({
-        fileId: fileId,
-        media: media,
-        fields: 'id',
+      await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+      const existingFiles = await drive.files.list({
+        q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
+        fields: 'files(id, name)',
       });
-      console.log('Updated file in Google Drive, ID:', file.data.id);
-    } else {
-      file = await drive.files.create({
-        resource: fileMetadata,
-        media: media,
-        fields: 'id',
-      });
-      console.log('Created new file in Google Drive, ID:', file.data.id);
+
+      const fileMetadata = {
+        name: 'customers.xlsx',
+        parents: [GOOGLE_DRIVE_FOLDER_ID],
+      };
+
+      const media = {
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        body: require('fs').createReadStream(LOCAL_EXCEL_FILE),
+      };
+
+      let file;
+      if (existingFiles.data.files.length > 0) {
+        const fileId = existingFiles.data.files[0].id;
+        file = await drive.files.update({
+          fileId: fileId,
+          media: media,
+          fields: 'id',
+        });
+        console.log('Updated file in Google Drive, ID:', file.data.id);
+      } else {
+        file = await drive.files.create({
+          resource: fileMetadata,
+          media: media,
+          fields: 'id',
+        });
+        console.log('Created new file in Google Drive, ID:', file.data.id);
+      }
+      return true; // Success
+    } catch (error) {
+      retries++;
+      console.error(`Failed to upload to Google Drive (attempt ${retries}/${maxRetries}):`, error.message, error.stack);
+      if (retries === maxRetries) {
+        throw error;
+      }
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, 1000 * retries));
     }
-  } catch (error) {
-    console.error('Failed to upload to Google Drive:', error.message, error.stack);
-    throw error;
   }
+  throw new Error('Failed to upload to Google Drive after maximum retries');
 }
 
 // Periodic sync with Google Drive (every 5 minutes)
@@ -587,14 +597,13 @@ app.post('/delete', async (req, res) => {
 
         let rowFound = false;
         const rowsToKeep = [];
-        // Always keep the header row
         rowsToKeep.push(sheet.getRow(1).values);
 
         const normalizedEmail = email ? email.toLowerCase().trim() : null;
         const normalizedPhone = phone ? phone.toString().trim() : null;
 
         sheet.eachRow((row, rowNumber) => {
-          if (rowNumber === 1) return; // Skip header row
+          if (rowNumber === 1) return;
           const existingEmail = row.getCell(2).value;
           const existingPhone = row.getCell(3).value;
 
@@ -617,6 +626,8 @@ app.post('/delete', async (req, res) => {
           deletionResult = { status: 404, body: { success: false, error: 'Customer not found' } };
           return;
         }
+
+        console.log('Rows to keep after deletion:', rowsToKeep);
 
         // Recreate the sheet with remaining rows
         workbook.removeWorksheet('Customers');
@@ -647,9 +658,21 @@ app.post('/delete', async (req, res) => {
             console.log(`Re-added row ${index + 1} after write failure during deletion:`, rowValues);
           });
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-          await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
           console.log('Recreated and saved to Excel file after write failure during deletion:', LOCAL_EXCEL_FILE);
         }
+
+        // Verify the local file contents after saving
+        const updatedWorkbook = new ExcelJS.Workbook();
+        await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+        const updatedSheet = updatedWorkbook.getWorksheet('Customers');
+        console.log('Local file contents after deletion:');
+        updatedSheet.eachRow((row, rowNumber) => {
+          const name = row.getCell(1).value || '';
+          const email = row.getCell(2).value || '';
+          const phone = row.getCell(3).value || '';
+          console.log(`Row ${rowNumber}:`, [name, email, phone]);
+        });
 
         try {
           await uploadToGoogleDrive();
