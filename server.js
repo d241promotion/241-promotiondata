@@ -395,6 +395,22 @@ function startGoogleDriveSync() {
 // Download the Excel file from Google Drive on server start, or use local backup
 async function initializeFromGoogleDrive() {
   console.log('Google Drive initialization on server start is disabled for debugging');
+
+  // One-time deletion of both files to simulate a fresh start
+  console.log('INIT: Deleting existing Excel and backup files for testing...');
+  try {
+    await fs.unlink(LOCAL_EXCEL_FILE);
+    console.log('INIT: Deleted Excel file:', LOCAL_EXCEL_FILE);
+  } catch (error) {
+    console.log('INIT: Excel file not found, no deletion needed:', error.message);
+  }
+  try {
+    await fs.unlink(LOCAL_BACKUP_FILE);
+    console.log('INIT: Deleted backup file:', LOCAL_BACKUP_FILE);
+  } catch (error) {
+    console.log('INIT: Backup file not found, no deletion needed:', error.message);
+  }
+
   let workbook;
   try {
     await checkDiskSpaceAndPermissions(LOCAL_BACKUP_FILE);
@@ -466,7 +482,7 @@ function getDuplicateErrorMessage(emailExists, phoneExists) {
   } else if (emailExists) {
     return 'Email already exists';
   } else {
-    return 'Phone number already exists';
+    return 'Phone number already exist';
   }
 }
 
