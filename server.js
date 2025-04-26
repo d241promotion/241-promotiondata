@@ -394,9 +394,22 @@ async function uploadToGoogleDrive(maxRetries = 3) {
   throw new Error('Failed to upload to Google Drive after maximum retries');
 }
 
-// Periodic sync with Google Drive (every 5 minutes) - Temporarily disabled
+// Periodic sync with Google Drive (every 5 minutes)
 function startGoogleDriveSync() {
-  console.log('Periodic Google Drive sync is disabled for debugging');
+  console.log('Starting periodic Google Drive sync (every 5 minutes)...');
+  setInterval(async () => {
+    try {
+      if (localChangesPending) {
+        console.log('Periodic sync: Local changes detected, uploading to Google Drive...');
+        await uploadToGoogleDrive();
+        console.log('Periodic sync: Successfully uploaded to Google Drive.');
+      } else {
+        console.log('Periodic sync: No local changes to sync.');
+      }
+    } catch (error) {
+      console.error('Periodic sync: Failed to sync with Google Drive:', error.message, error.stack);
+    }
+  }, 5 * 60 * 1000); // 5 minutes
 }
 
 // Download the Excel file from Google Drive on server start, or use local backup
@@ -533,9 +546,6 @@ app.post('/submit', async (req, res) => {
     let submissionResult;
     fileLockPromise = fileLockPromise.then(async () => {
       try {
-        // Temporarily disable Google Drive sync to isolate local file operations
-        console.log('SUBMIT: Google Drive sync disabled for debugging');
-
         let workbook;
         let sheet;
 
@@ -702,8 +712,24 @@ app.post('/submit', async (req, res) => {
           console.log('SUBMIT: New row successfully verified in file.');
         }
 
-        // Step 8: Set response (Google Drive upload disabled)
-        submissionResult = { status: 200, body: { success: true, name } };
+        // Step 8: Upload to Google Drive
+        console.log('SUBMIT: Attempting to upload to Google Drive...');
+        localChangesPending = true; // Set flag to indicate local changes
+        try {
+          await uploadToGoogleDrive();
+          console.log('SUBMIT: Successfully uploaded to Google Drive.');
+          submissionResult = { status: 200, body: { success: true, name } };
+        } catch (syncError) {
+          console.error('SUBMIT: Google Drive sync failed:', syncError.message, syncError.stack);
+          submissionResult = { 
+            status: 200, 
+            body: { 
+              success: true, 
+              name, 
+              message: 'Submission saved locally, but failed to sync to Google Drive. It will be synced periodically.'
+            }
+          };
+        }
       } catch (error) {
         throw error;
       }
