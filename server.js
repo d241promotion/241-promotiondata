@@ -436,13 +436,16 @@ app.post('/submit', async (req, res) => {
           console.log('SUBMIT: Forced recreation of Excel file:', LOCAL_EXCEL_FILE);
         }
 
-        // Step 2: Log the current contents of the file
-        console.log('SUBMIT: Current file contents before adding new row:');
+        // Step 2: Collect all existing rows (excluding header)
+        console.log('SUBMIT: Collecting existing rows before adding new row...');
+        const existingRows = [];
         sheet.eachRow((row, rowNumber) => {
-          const rowName = row.getCell(1).value || '';
-          const rowEmail = row.getCell(2).value || '';
-          const rowPhone = row.getCell(3).value || '';
-          console.log(`SUBMIT: Row ${rowNumber}:`, [rowName, rowEmail, rowPhone]);
+          if (rowNumber === 1) return; // Skip header
+          const name = row.getCell(1).value || '';
+          const email = row.getCell(2).value || '';
+          const phone = row.getCell(3).value || '';
+          existingRows.push([name, email, phone]);
+          console.log(`SUBMIT: Existing Row ${rowNumber}:`, [name, email, phone]);
         });
 
         // Step 3: Check for duplicates
@@ -452,15 +455,14 @@ app.post('/submit', async (req, res) => {
         const normalizedEmail = email.toLowerCase().trim();
         const normalizedPhone = phone.toString().trim();
 
-        sheet.eachRow((row, rowNumber) => {
-          if (rowNumber === 1) return;
-          const existingEmail = row.getCell(2).value;
-          const existingPhone = row.getCell(3).value;
+        existingRows.forEach((row, index) => {
+          const existingEmail = row[1];
+          const existingPhone = row[2];
 
           const normalizedExistingEmail = existingEmail ? existingEmail.toString().toLowerCase().trim() : '';
           const normalizedExistingPhone = existingPhone ? existingPhone.toString().trim() : '';
 
-          console.log(`SUBMIT: Row ${rowNumber} - Existing Email: '${normalizedExistingEmail}', Existing Phone: '${normalizedExistingPhone}'`);
+          console.log(`SUBMIT: Existing Row ${index + 2} - Email: '${normalizedExistingEmail}', Phone: '${normalizedExistingPhone}'`);
           console.log(`SUBMIT: Comparing Email - Input: '${normalizedEmail}', Existing: '${normalizedExistingEmail}', Match: ${normalizedExistingEmail === normalizedEmail}`);
           console.log(`SUBMIT: Comparing Phone - Input: '${normalizedPhone}', Existing: '${normalizedExistingPhone}', Match: ${normalizedExistingPhone === normalizedPhone}`);
 
@@ -481,13 +483,27 @@ app.post('/submit', async (req, res) => {
           console.log('SUBMIT: No duplicates found, proceeding to add new row.');
         }
 
-        // Step 4: Add the new row
-        console.log('SUBMIT: Adding new row to worksheet...');
-        const newRow = sheet.addRow([name, email, phone]);
-        newRow.commit();
-        console.log('SUBMIT: Added new row to worksheet:', [name, email, phone]);
+        // Step 4: Add the new row to the list
+        existingRows.push([name, email, phone]);
+        console.log('SUBMIT: Added new row to list:', [name, email, phone]);
 
-        // Step 5: Save the file with retries
+        // Step 5: Recreate the worksheet with contiguous rows
+        console.log('SUBMIT: Recreating worksheet with contiguous rows...');
+        workbook.removeWorksheet('Customers');
+        const newSheet = workbook.addWorksheet('Customers');
+        newSheet.columns = [
+          { header: 'Name', key: 'name', width: 20 },
+          { header: 'Email', key: 'email', width: 30 },
+          { header: 'Phone', key: 'phone', width: 15 },
+        ];
+
+        existingRows.forEach((rowValues, index) => {
+          const newRow = newSheet.addRow(rowValues);
+          newRow.commit();
+          console.log(`SUBMIT: Added row ${index + 2} to new worksheet:`, rowValues);
+        });
+
+        // Step 6: Save the file with retries
         console.log('SUBMIT: Checking disk space and permissions before saving...');
         await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
         let writeAttempts = 0;
@@ -510,7 +526,7 @@ app.post('/submit', async (req, res) => {
           }
         }
 
-        // Step 6: Verify the file contents after saving
+        // Step 7: Verify the file contents after saving
         console.log('SUBMIT: Verifying file contents after save...');
         const updatedWorkbook = new ExcelJS.Workbook();
         await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
@@ -540,7 +556,7 @@ app.post('/submit', async (req, res) => {
           console.log('SUBMIT: New row successfully verified in file.');
         }
 
-        // Step 7: Set response (Google Drive upload disabled)
+        // Step 8: Set response (Google Drive upload disabled)
         submissionResult = { status: 200, body: { success: true, name } };
       } catch (error) {
         throw error;
@@ -748,6 +764,19 @@ app.get('/download', async (req, res) => {
       console.log('DOWNLOAD: No customer data available yet');
       return res.status(404).send('No customer data available yet');
     }
+
+    // Log the file contents before sending
+    console.log('DOWNLOAD: Reading file contents before sending...');
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+    const sheet = workbook.getWorksheet('Customers');
+    console.log('DOWNLOAD: File contents before download:');
+    sheet.eachRow((row, rowNumber) => {
+      const name = row.getCell(1).value || '';
+      const email = row.getCell(2).value || '';
+      const phone = row.getCell(3).value || '';
+      console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone]);
+    });
 
     console.log('DOWNLOAD: Sending Excel file to client...');
     res.setHeader('Content-Disposition', 'attachment; filename=customers.xlsx');
