@@ -10,6 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
 const LOCAL_BACKUP_FILE = path.join(__dirname, 'customers_backup.xlsx');
+const TEMP_EXCEL_FILE = path.join(__dirname, 'customers_temp.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1l4e6cq0LaFS2IFkJlWKLFJ_CVIEqPqTK';
 
 // Use a promise-based lock to prevent concurrent file access
@@ -60,6 +61,18 @@ async function checkDiskSpaceAndPermissions(filePath) {
   } catch (error) {
     console.error('Disk space or permission check failed:', error.message);
     throw error;
+  }
+}
+
+// Log file stats (timestamp and size)
+async function logFileStats(filePath, label) {
+  try {
+    const stats = await fs.stat(filePath);
+    console.log(`${label} - File stats for ${filePath}:`);
+    console.log(`  Last modified: ${stats.mtime}`);
+    console.log(`  Size: ${stats.size} bytes`);
+  } catch (error) {
+    console.error(`${label} - Failed to get file stats for ${filePath}:`, error.message);
   }
 }
 
@@ -132,6 +145,7 @@ async function loadLocalExcel() {
   let existingData = [];
   try {
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+    await logFileStats(LOCAL_EXCEL_FILE, 'LOAD');
     workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
     console.log('Loaded local Excel file:', LOCAL_EXCEL_FILE);
@@ -151,6 +165,7 @@ async function loadLocalExcel() {
       }
       await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
       await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      await logFileStats(LOCAL_EXCEL_FILE, 'LOAD: After Recreation');
       console.log('Recreated Excel file with existing data:', LOCAL_EXCEL_FILE);
     }
   } catch (error) {
@@ -159,6 +174,7 @@ async function loadLocalExcel() {
     try {
       await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
       await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      await logFileStats(LOCAL_EXCEL_FILE, 'LOAD: After Initialization');
       console.log('Initialized new Excel file:', LOCAL_EXCEL_FILE);
     } catch (writeError) {
       console.error('Failed to initialize new Excel file:', writeError.message, writeError.stack);
@@ -172,7 +188,9 @@ async function loadLocalExcel() {
 async function createBackup() {
   try {
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+    await logFileStats(LOCAL_EXCEL_FILE, 'BACKUP: Before');
     await fs.copyFile(LOCAL_EXCEL_FILE, LOCAL_BACKUP_FILE);
+    await logFileStats(LOCAL_BACKUP_FILE, 'BACKUP: After');
     console.log('Created backup of Excel file:', LOCAL_BACKUP_FILE);
   } catch (error) {
     console.error('Failed to create backup:', error.message, error.stack);
@@ -209,6 +227,7 @@ async function downloadFromGoogleDrive() {
           .on('finish', resolve);
       });
       console.log('Downloaded Excel file from Google Drive to local:', LOCAL_EXCEL_FILE);
+      await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Download');
 
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
@@ -227,6 +246,7 @@ async function downloadFromGoogleDrive() {
         }
         await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
         await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+        await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Recreation');
         console.log('Recreated Excel file with existing data after download:', LOCAL_EXCEL_FILE);
       }
 
@@ -254,6 +274,7 @@ async function downloadFromGoogleDrive() {
       const workbook = await initializeExcel();
       await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
       await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Initialization');
       await createBackup();
     }
   } catch (error) {
@@ -261,6 +282,7 @@ async function downloadFromGoogleDrive() {
     const workbook = await initializeExcel();
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+    await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Error Recovery');
     await createBackup();
   }
 }
@@ -275,6 +297,7 @@ async function uploadToGoogleDrive(maxRetries = 3) {
         throw new Error('Local Excel file is empty');
       }
       console.log('Local Excel file size:', stats.size, 'bytes');
+      await logFileStats(LOCAL_EXCEL_FILE, 'UPLOAD: Before');
 
       await createBackup();
 
@@ -336,15 +359,18 @@ function startGoogleDriveSync() {
 
 // Download the Excel file from Google Drive on server start, or use local backup
 async function initializeFromGoogleDrive() {
+  console.log('Google Drive initialization on server start is disabled for debugging');
   let workbook;
   try {
     await checkDiskSpaceAndPermissions(LOCAL_BACKUP_FILE);
+    await logFileStats(LOCAL_BACKUP_FILE, 'INIT: Backup');
     workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(LOCAL_BACKUP_FILE);
     console.log('Loaded local backup file:', LOCAL_BACKUP_FILE);
     const isValid = await validateWorkbook(workbook);
     if (isValid) {
       await fs.copyFile(LOCAL_BACKUP_FILE, LOCAL_EXCEL_FILE);
+      await logFileStats(LOCAL_EXCEL_FILE, 'INIT: After Restore from Backup');
       console.log('Restored local backup to main file:', LOCAL_EXCEL_FILE);
       return;
     } else {
@@ -361,13 +387,17 @@ async function initializeFromGoogleDrive() {
       }
       await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
       await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      await logFileStats(LOCAL_EXCEL_FILE, 'INIT: After Recreation from Backup');
       console.log('Recreated Excel file from backup with existing data:', LOCAL_EXCEL_FILE);
     }
   } catch (error) {
-    console.log('Local backup not found or invalid, proceeding with Google Drive initialization:', error.message);
+    console.log('Local backup not found or invalid, initializing new Excel file:', error.message);
+    workbook = await initializeExcel();
+    await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+    await logFileStats(LOCAL_EXCEL_FILE, 'INIT: After New File Creation');
+    console.log('Initialized new Excel file on server start:', LOCAL_EXCEL_FILE);
   }
-
-  await downloadFromGoogleDrive();
 }
 
 // Helper function to generate the duplicate error message
@@ -433,6 +463,7 @@ app.post('/submit', async (req, res) => {
           sheet = workbook.getWorksheet('Customers');
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          await logFileStats(LOCAL_EXCEL_FILE, 'SUBMIT: After Forced Recreation');
           console.log('SUBMIT: Forced recreation of Excel file:', LOCAL_EXCEL_FILE);
         }
 
@@ -510,6 +541,7 @@ app.post('/submit', async (req, res) => {
         const maxWriteAttempts = 3;
         let fileWritten = false;
         console.log('SUBMIT: Attempting to save Excel file...');
+        await logFileStats(LOCAL_EXCEL_FILE, 'SUBMIT: Before Save');
         while (writeAttempts < maxWriteAttempts && !fileWritten) {
           try {
             await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
@@ -525,6 +557,7 @@ app.post('/submit', async (req, res) => {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
+        await logFileStats(LOCAL_EXCEL_FILE, 'SUBMIT: After Save');
 
         // Step 7: Verify the file contents after saving
         console.log('SUBMIT: Verifying file contents after save...');
@@ -551,6 +584,7 @@ app.post('/submit', async (req, res) => {
           newRow.commit();
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          await logFileStats(LOCAL_EXCEL_FILE, 'SUBMIT: After Fallback Recreation');
           console.log('SUBMIT: Recreated Excel file with only the new row:', LOCAL_EXCEL_FILE);
         } else {
           console.log('SUBMIT: New row successfully verified in file.');
@@ -621,6 +655,7 @@ app.post('/delete', async (req, res) => {
           sheet = workbook.getWorksheet('Customers');
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          await logFileStats(LOCAL_EXCEL_FILE, 'DELETE: After Forced Recreation');
           console.log('DELETE: Forced recreation of Excel file for deletion:', LOCAL_EXCEL_FILE);
           deletionResult = { status: 404, body: { success: false, error: 'No data to delete after file recreation' } };
           return;
@@ -683,6 +718,7 @@ app.post('/delete', async (req, res) => {
         const maxWriteAttempts = 3;
         let fileWritten = false;
         console.log('DELETE: Attempting to save Excel file after deletion...');
+        await logFileStats(LOCAL_EXCEL_FILE, 'DELETE: Before Save');
         while (writeAttempts < maxWriteAttempts && !fileWritten) {
           try {
             await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
@@ -698,6 +734,7 @@ app.post('/delete', async (req, res) => {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
+        await logFileStats(LOCAL_EXCEL_FILE, 'DELETE: After Save');
 
         // Verify the local file contents after saving
         console.log('DELETE: Verifying file contents after deletion...');
@@ -759,31 +796,52 @@ app.post('/delete', async (req, res) => {
 // Handle file download
 app.get('/download', async (req, res) => {
   try {
-    const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
-    if (!fileExists) {
-      console.log('DOWNLOAD: No customer data available yet');
-      return res.status(404).send('No customer data available yet');
-    }
+    let downloadResult;
+    fileLockPromise = fileLockPromise.then(async () => {
+      try {
+        const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+        if (!fileExists) {
+          console.log('DOWNLOAD: No customer data available yet');
+          downloadResult = { status: 404, body: 'No customer data available yet' };
+          return;
+        }
 
-    // Log the file contents before sending
-    console.log('DOWNLOAD: Reading file contents before sending...');
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-    const sheet = workbook.getWorksheet('Customers');
-    console.log('DOWNLOAD: File contents before download:');
-    sheet.eachRow((row, rowNumber) => {
-      const name = row.getCell(1).value || '';
-      const email = row.getCell(2).value || '';
-      const phone = row.getCell(3).value || '';
-      console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone]);
+        // Force file system refresh by renaming the file and renaming it back
+        console.log('DOWNLOAD: Forcing file system refresh...');
+        await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: Before Refresh');
+        await fs.rename(LOCAL_EXCEL_FILE, TEMP_EXCEL_FILE);
+        await fs.rename(TEMP_EXCEL_FILE, LOCAL_EXCEL_FILE);
+        await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Refresh');
+
+        // Log the file contents before sending
+        console.log('DOWNLOAD: Reading file contents before sending...');
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+        const sheet = workbook.getWorksheet('Customers');
+        console.log('DOWNLOAD: File contents before download:');
+        sheet.eachRow((row, rowNumber) => {
+          const name = row.getCell(1).value || '';
+          const email = row.getCell(2).value || '';
+          const phone = row.getCell(3).value || '';
+          console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone]);
+        });
+
+        console.log('DOWNLOAD: Sending Excel file to client...');
+        res.setHeader('Content-Disposition', 'attachment; filename=customers.xlsx');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        const fileStream = require('fs').createReadStream(LOCAL_EXCEL_FILE);
+        fileStream.pipe(res);
+        console.log('DOWNLOAD: File stream initiated.');
+      } catch (error) {
+        throw error;
+      }
     });
 
-    console.log('DOWNLOAD: Sending Excel file to client...');
-    res.setHeader('Content-Disposition', 'attachment; filename=customers.xlsx');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    const fileStream = require('fs').createReadStream(LOCAL_EXCEL_FILE);
-    fileStream.pipe(res);
-    console.log('DOWNLOAD: File stream initiated.');
+    await fileLockPromise;
+
+    if (downloadResult) {
+      res.status(downloadResult.status).send(downloadResult.body);
+    }
   } catch (error) {
     console.error('DOWNLOAD: Error downloading local file:', error.message, error.stack);
     res.status(500).send('Error downloading file');
@@ -792,7 +850,7 @@ app.get('/download', async (req, res) => {
 
 // Initialize the server
 (async () => {
-  console.log('SERVER: Initializing server and syncing with Google Drive...');
+  console.log('SERVER: Initializing server...');
   await initializeFromGoogleDrive();
   startGoogleDriveSync();
   app.listen(PORT, () => {
