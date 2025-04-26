@@ -33,7 +33,6 @@ async function initializeExcel() {
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
   ];
-  // Verify column keys are set
   console.log('Initialized worksheet columns:', sheet.columns.map(col => ({ header: col.header, key: col.key })));
   return workbook;
 }
@@ -73,13 +72,12 @@ async function validateWorkbook(workbook) {
     const headers = sheet.getRow(1).values;
     console.log('Worksheet headers:', headers);
     const expectedHeaders = ['Name', 'Email', 'Phone'];
-    const actualHeaders = headers.slice(1, 4); // Ignore first empty cell, take first 3 headers
+    const actualHeaders = headers.slice(1, 4);
     const headersValid = expectedHeaders.every((header, index) => header === actualHeaders[index]);
     if (!headersValid) {
       throw new Error(`Invalid worksheet headers. Expected ${expectedHeaders}, got ${actualHeaders}`);
     }
 
-    // Try accessing a few rows to ensure the file is not corrupted
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return;
       const name = row.getCell(1).value;
@@ -94,7 +92,7 @@ async function validateWorkbook(workbook) {
   }
 }
 
-// Extract existing data from the workbook if possible
+// Extract existing data from the workbook
 async function extractExistingData(workbook) {
   const data = [];
   try {
@@ -105,9 +103,8 @@ async function extractExistingData(workbook) {
     }
 
     sheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return; // Skip header row
+      if (rowNumber === 1) return;
       try {
-        // Use numeric indices to avoid column key issues
         const name = row.getCell(1).value;
         const email = row.getCell(2).value;
         const phone = row.getCell(3).value;
@@ -137,7 +134,6 @@ async function loadLocalExcel() {
     await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
     console.log('Loaded local Excel file:', LOCAL_EXCEL_FILE);
 
-    // Validate the workbook
     const isValid = await validateWorkbook(workbook);
     if (!isValid) {
       console.log('Workbook validation failed, extracting data before recreation...');
@@ -206,7 +202,6 @@ async function downloadFromGoogleDrive() {
       });
       console.log('Downloaded Excel file from Google Drive to local:', LOCAL_EXCEL_FILE);
 
-      // Validate the downloaded file
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
       const isValid = await validateWorkbook(workbook);
@@ -227,7 +222,6 @@ async function downloadFromGoogleDrive() {
         console.log('Recreated Excel file with existing data after download:', LOCAL_EXCEL_FILE);
       }
 
-      // Log the contents of the file after downloading
       const sheet = workbook.getWorksheet('Customers');
       console.log('File contents after sync:');
       console.log('Column keys:', sheet.columns.map(col => col.key));
@@ -246,7 +240,6 @@ async function downloadFromGoogleDrive() {
         }
       });
 
-      // Update the local backup after downloading
       await createBackup();
     } else {
       console.log('No Excel file found in Google Drive, initializing new one locally.');
@@ -267,17 +260,14 @@ async function downloadFromGoogleDrive() {
 // Upload the local Excel file to Google Drive
 async function uploadToGoogleDrive() {
   try {
-    // Verify the local file exists and is not empty
     const stats = await fs.stat(LOCAL_EXCEL_FILE);
     if (stats.size === 0) {
       throw new Error('Local Excel file is empty');
     }
     console.log('Local Excel file size:', stats.size, 'bytes');
 
-    // Create a backup before uploading
     await createBackup();
 
-    // Verify Google Drive authentication
     const authClient = await auth.getClient();
     console.log('Google Drive authentication successful:', !!authClient);
 
@@ -339,7 +329,6 @@ function startGoogleDriveSync() {
 // Download the Excel file from Google Drive on server start, or use local backup
 async function initializeFromGoogleDrive() {
   let workbook;
-  // First, try loading the local backup if it exists
   try {
     await checkDiskSpaceAndPermissions(LOCAL_BACKUP_FILE);
     workbook = new ExcelJS.Workbook();
@@ -414,11 +403,9 @@ app.post('/submit', async (req, res) => {
   }
 
   try {
-    // Use the lock to ensure exclusive access to the file
     let submissionResult;
     fileLockPromise = fileLockPromise.then(async () => {
       try {
-        // Sync with Google Drive to get the latest file before checking duplicates
         console.log('Syncing with Google Drive before duplicate check...');
         await downloadFromGoogleDrive();
 
@@ -430,7 +417,6 @@ app.post('/submit', async (req, res) => {
           sheet = workbook.getWorksheet('Customers');
         } catch (loadError) {
           console.error('Failed to load Excel file, forcing recreation:', loadError.message, loadError.stack);
-          // Force recreation of the file if loading fails
           workbook = await initializeExcel();
           sheet = workbook.getWorksheet('Customers');
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
@@ -442,10 +428,7 @@ app.post('/submit', async (req, res) => {
         let phoneExists = false;
         let existingData = [];
         try {
-          // Extract existing data before duplicate check for safety
           existingData = await extractExistingData(workbook);
-
-          // Normalize the input email and phone for comparison
           const normalizedEmail = email.toLowerCase().trim();
           const normalizedPhone = phone.toString().trim();
 
@@ -454,7 +437,6 @@ app.post('/submit', async (req, res) => {
             const existingEmail = row.getCell(2).value;
             const existingPhone = row.getCell(3).value;
 
-            // Normalize existing values for comparison
             const normalizedExistingEmail = existingEmail ? existingEmail.toString().toLowerCase().trim() : '';
             const normalizedExistingPhone = existingPhone ? existingPhone.toString().trim() : '';
 
@@ -478,10 +460,8 @@ app.post('/submit', async (req, res) => {
           }
         } catch (rowError) {
           console.error('Error accessing rows, likely corrupted file:', rowError.message, rowError.stack);
-          // If accessing rows fails (e.g., Out of bounds error), recreate the file
           workbook = await initializeExcel();
           sheet = workbook.getWorksheet('Customers');
-          // Re-add existing data
           if (existingData.length > 0) {
             existingData.forEach(rowData => {
               const newRow = sheet.addRow(rowData);
@@ -506,11 +486,9 @@ app.post('/submit', async (req, res) => {
           console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
         } catch (writeError) {
           console.error('Failed to write to Excel file, attempting to recreate:', writeError.message, writeError.stack);
-          // If writing fails, recreate the file and retry
           existingData = await extractExistingData(workbook);
           workbook = await initializeExcel();
           const retrySheet = workbook.getWorksheet('Customers');
-          // Re-add existing data
           if (existingData.length > 0) {
             existingData.forEach(rowData => {
               const newRow = retrySheet.addRow(rowData);
@@ -520,7 +498,6 @@ app.post('/submit', async (req, res) => {
           } else {
             console.warn('No existing data could be extracted due to corruption; previous data may be lost');
           }
-          // Add the new row
           const newRetryRow = retrySheet.addRow([name, email, phone]);
           newRetryRow.commit();
           console.log('Added new row after write failure:', [name, email, phone]);
@@ -544,7 +521,7 @@ app.post('/submit', async (req, res) => {
           };
         }
       } catch (error) {
-        throw error; // Re-throw to be caught by the outer catch
+        throw error;
       }
     });
 
@@ -569,6 +546,147 @@ app.post('/submit', async (req, res) => {
       res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
     } else {
       res.status(500).json({ success: false, error: 'Unable to save your submission. Please try again later.' });
+    }
+  }
+});
+
+// Handle row deletion
+app.post('/delete', async (req, res) => {
+  const { email, phone } = req.body;
+
+  console.log('Received delete request:', { email, phone });
+
+  if (!email && !phone) {
+    console.log('Validation failed: Email or phone required for deletion');
+    return res.status(400).json({ success: false, error: 'Email or phone required for deletion' });
+  }
+
+  try {
+    let deletionResult;
+    fileLockPromise = fileLockPromise.then(async () => {
+      try {
+        console.log('Syncing with Google Drive before deletion...');
+        await downloadFromGoogleDrive();
+
+        let workbook;
+        let sheet;
+
+        try {
+          workbook = await loadLocalExcel();
+          sheet = workbook.getWorksheet('Customers');
+        } catch (loadError) {
+          console.error('Failed to load Excel file for deletion, forcing recreation:', loadError.message, loadError.stack);
+          workbook = await initializeExcel();
+          sheet = workbook.getWorksheet('Customers');
+          await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          console.log('Forced recreation of Excel file for deletion:', LOCAL_EXCEL_FILE);
+          deletionResult = { status: 404, body: { success: false, error: 'No data to delete after file recreation' } };
+          return;
+        }
+
+        let rowFound = false;
+        const rowsToKeep = [];
+        // Always keep the header row
+        rowsToKeep.push(sheet.getRow(1).values);
+
+        const normalizedEmail = email ? email.toLowerCase().trim() : null;
+        const normalizedPhone = phone ? phone.toString().trim() : null;
+
+        sheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return; // Skip header row
+          const existingEmail = row.getCell(2).value;
+          const existingPhone = row.getCell(3).value;
+
+          const normalizedExistingEmail = existingEmail ? existingEmail.toString().toLowerCase().trim() : '';
+          const normalizedExistingPhone = existingPhone ? existingPhone.toString().trim() : '';
+
+          const emailMatch = normalizedEmail && normalizedExistingEmail === normalizedEmail;
+          const phoneMatch = normalizedPhone && normalizedExistingPhone === normalizedPhone;
+
+          if (emailMatch || phoneMatch) {
+            console.log(`Found matching row ${rowNumber} to delete:`, [row.getCell(1).value, normalizedExistingEmail, normalizedExistingPhone]);
+            rowFound = true;
+          } else {
+            rowsToKeep.push(row.values);
+          }
+        });
+
+        if (!rowFound) {
+          console.log('No matching row found for deletion');
+          deletionResult = { status: 404, body: { success: false, error: 'Customer not found' } };
+          return;
+        }
+
+        // Recreate the sheet with remaining rows
+        workbook.removeWorksheet('Customers');
+        const newSheet = workbook.addWorksheet('Customers');
+        newSheet.columns = [
+          { header: 'Name', key: 'name', width: 20 },
+          { header: 'Email', key: 'email', width: 30 },
+          { header: 'Phone', key: 'phone', width: 15 },
+        ];
+
+        rowsToKeep.forEach((rowValues, index) => {
+          const newRow = newSheet.addRow(rowValues);
+          newRow.commit();
+          console.log(`Re-added row ${index + 1} after deletion:`, rowValues);
+        });
+
+        await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+        try {
+          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          console.log('Data saved to local Excel file after deletion:', LOCAL_EXCEL_FILE);
+        } catch (writeError) {
+          console.error('Failed to write to Excel file after deletion, attempting to recreate:', writeError.message, writeError.stack);
+          const newWorkbook = await initializeExcel();
+          const retrySheet = newWorkbook.getWorksheet('Customers');
+          rowsToKeep.forEach((rowValues, index) => {
+            const newRow = retrySheet.addRow(rowValues);
+            newRow.commit();
+            console.log(`Re-added row ${index + 1} after write failure during deletion:`, rowValues);
+          });
+          await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+          await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          console.log('Recreated and saved to Excel file after write failure during deletion:', LOCAL_EXCEL_FILE);
+        }
+
+        try {
+          await uploadToGoogleDrive();
+          deletionResult = { status: 200, body: { success: true, message: 'Customer deleted successfully' } };
+        } catch (syncError) {
+          console.error('Google Drive sync failed after deletion:', syncError.message, syncError.stack);
+          deletionResult = { 
+            status: 200, 
+            body: { 
+              success: true, 
+              message: 'Customer deleted locally, but failed to sync to Google Drive. Please contact support.'
+            }
+          };
+        }
+      } catch (error) {
+        throw error;
+      }
+    });
+
+    await fileLockPromise;
+
+    if (deletionResult) {
+      res.status(deletionResult.status).json(deletionResult.body);
+    } else {
+      throw new Error('Deletion result not set');
+    }
+  } catch (error) {
+    console.error('Failed to delete customer:', error.message, error.stack);
+    if (error.message.includes('Insufficient disk space')) {
+      res.status(500).json({ success: false, error: 'Server disk space is full. Please contact support.' });
+    } else if (error.message.includes('Permission denied')) {
+      res.status(500).json({ success: false, error: 'File permission error. Please contact support.' });
+    } else if (error.message.includes('Corrupt')) {
+      console.log('Excel file appears to be corrupted, already recreated in main flow.');
+      res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
+    } else {
+      res.status(500).json({ success: false, error: 'Unable to delete customer. Please try again later.' });
     }
   }
 });
