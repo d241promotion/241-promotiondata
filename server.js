@@ -30,6 +30,42 @@ async function initializeExcel() {
   const sheet = workbook.addWorksheet('Customers');
   sheet.columns = [
     { header: 'Name', key: 'name', width: 20 },
+    { header: 'JU
+
+filepath: server.js
+
+const express = require('express');
+const bodyParser = require('body-parser');
+const ExcelJS = require('exceljs');
+const path = require('path');
+const fs = require('fs').promises;
+const { google } = require('googleapis');
+const disk = require('diskusage');
+
+const app = express();
+const PORT = process.env.PORT || 10000;
+const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
+const LOCAL_BACKUP_FILE = path.join(__dirname, 'customers_backup.xlsx');
+const GOOGLE_DRIVE_FOLDER_ID = '1l4e6cq0LaFS2IFkJlWKLFJ_CVIEqPqTK';
+
+// Use a promise-based lock to prevent concurrent file access
+let fileLockPromise = Promise.resolve();
+
+const auth = new google.auth.GoogleAuth({
+  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT),
+  scopes: ['https://www.googleapis.com/auth/drive'],
+});
+const drive = google.drive({ version: 'v3', auth });
+
+app.use(bodyParser.json());
+app.use(express.static(__dirname));
+
+// Initialize the Excel workbook
+async function initializeExcel() {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Customers');
+  sheet.columns = [
+    { header: 'Name', key: 'name', width: 20 },
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
   ];
@@ -192,7 +228,8 @@ async function createBackup() {
 async function downloadFromGoogleDrive() {
   try {
     const response = await drive.files.list({
-      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false complementary fields: 'files(id)',
+      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
+      fields: 'files(id)',
     });
 
     if (response.data.files.length > 0) {
@@ -240,7 +277,10 @@ async function downloadFromGoogleDrive() {
         if (rowNumber === 1) {
           console.log('Headers:', row.values);
         } else {
-          console.log(`Row ${rowNumber}:`, [row.getCell('name').value, row.getCell('email').value, row.getCell('phone').value]);
+          const name = row.getCell('name').value || '';
+          const email = row.getCell('email').value || '';
+          const phone = row.getCell('phone').value || '';
+          console.log('Row ' + rowNumber + ':', [name, email, phone]);
         }
       });
 
