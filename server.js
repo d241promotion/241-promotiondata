@@ -151,6 +151,16 @@ async function loadLocalExcel() {
   let workbook;
   let existingData = [];
   try {
+    // Force file system refresh by renaming the file and renaming it back
+    console.log('LOAD: Forcing file system refresh...');
+    const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+    if (fileExists) {
+      await logFileStats(LOCAL_EXCEL_FILE, 'LOAD: Before Refresh');
+      await fs.rename(LOCAL_EXCEL_FILE, TEMP_EXCEL_FILE);
+      await fs.rename(TEMP_EXCEL_FILE, LOCAL_EXCEL_FILE);
+      await logFileStats(LOCAL_EXCEL_FILE, 'LOAD: After Refresh');
+    }
+
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
     await logFileStats(LOCAL_EXCEL_FILE, 'LOAD');
     workbook = new ExcelJS.Workbook();
@@ -791,6 +801,15 @@ app.post('/delete', async (req, res) => {
           workbook = await loadLocalExcel();
           sheet = workbook.getWorksheet('Customers');
           console.log('DELETE: Successfully loaded local Excel file:', LOCAL_EXCEL_FILE);
+
+          // Log file contents before deletion
+          console.log('DELETE: File contents before deletion:');
+          sheet.eachRow((row, rowNumber) => {
+            const name = row.getCell(1).value || '';
+            const email = row.getCell(2).value || '';
+            const phone = row.getCell(3).value || '';
+            console.log(`DELETE: Row ${rowNumber}:`, [name, email, phone]);
+          });
         } catch (loadError) {
           console.error('DELETE: Failed to load Excel file for deletion, forcing recreation:', loadError.message, loadError.stack);
           workbook = await initializeExcel();
