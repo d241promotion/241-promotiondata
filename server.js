@@ -331,21 +331,6 @@ async function uploadToGoogleDrive(maxRetries = 3) {
 
 // Periodic sync with Google Drive (every 5 minutes) - Temporarily disabled
 function startGoogleDriveSync() {
-  // Commenting out periodic sync to isolate the issue to local file operations
-  /*
-  setInterval(async () => {
-    try {
-      console.log('Starting periodic sync with Google Drive...');
-      fileLockPromise = fileLockPromise.then(async () => {
-        await uploadToGoogleDrive();
-      });
-      await fileLockPromise;
-      console.log('Periodic sync completed.');
-    } catch (error) {
-      console.error('Periodic sync failed:', error.message, error.stack);
-    }
-  }, 5 * 60 * 1000);
-  */
   console.log('Periodic Google Drive sync is disabled for debugging');
 }
 
@@ -400,8 +385,9 @@ function getDuplicateErrorMessage(emailExists, phoneExists) {
 app.post('/submit', async (req, res) => {
   const { name, email, phone } = req.body;
 
-  console.log('SUBMIT: Received initial submission:', { name, email, phone });
+  console.log('SUBMIT: Received submission:', { name, email, phone });
 
+  // Input validation
   if (!name || !email || !phone) {
     console.log('SUBMIT: Validation failed: Missing required fields');
     return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -429,12 +415,13 @@ app.post('/submit', async (req, res) => {
     let submissionResult;
     fileLockPromise = fileLockPromise.then(async () => {
       try {
-        console.log('SUBMIT: Syncing with Google Drive before duplicate check...');
-        await downloadFromGoogleDrive();
+        // Temporarily disable Google Drive sync to isolate local file operations
+        console.log('SUBMIT: Google Drive sync disabled for debugging');
 
         let workbook;
         let sheet;
 
+        // Step 1: Load the existing Excel file
         console.log('SUBMIT: Loading local Excel file...');
         try {
           workbook = await loadLocalExcel();
@@ -449,66 +436,58 @@ app.post('/submit', async (req, res) => {
           console.log('SUBMIT: Forced recreation of Excel file:', LOCAL_EXCEL_FILE);
         }
 
+        // Step 2: Log the current contents of the file
+        console.log('SUBMIT: Current file contents before adding new row:');
+        sheet.eachRow((row, rowNumber) => {
+          const rowName = row.getCell(1).value || '';
+          const rowEmail = row.getCell(2).value || '';
+          const rowPhone = row.getCell(3).value || '';
+          console.log(`SUBMIT: Row ${rowNumber}:`, [rowName, rowEmail, rowPhone]);
+        });
+
+        // Step 3: Check for duplicates
+        console.log('SUBMIT: Checking for duplicates...');
         let emailExists = false;
         let phoneExists = false;
-        let existingData = [];
-        console.log('SUBMIT: Checking for duplicates...');
-        try {
-          existingData = await extractExistingData(workbook);
-          const normalizedEmail = email.toLowerCase().trim();
-          const normalizedPhone = phone.toString().trim();
+        const normalizedEmail = email.toLowerCase().trim();
+        const normalizedPhone = phone.toString().trim();
 
-          sheet.eachRow((row, rowNumber) => {
-            if (rowNumber === 1) return;
-            const existingEmail = row.getCell(2).value;
-            const existingPhone = row.getCell(3).value;
+        sheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
+          const existingEmail = row.getCell(2).value;
+          const existingPhone = row.getCell(3).value;
 
-            const normalizedExistingEmail = existingEmail ? existingEmail.toString().toLowerCase().trim() : '';
-            const normalizedExistingPhone = existingPhone ? existingPhone.toString().trim() : '';
+          const normalizedExistingEmail = existingEmail ? existingEmail.toString().toLowerCase().trim() : '';
+          const normalizedExistingPhone = existingPhone ? existingPhone.toString().trim() : '';
 
-            console.log(`SUBMIT: Row ${rowNumber} - Existing Email: '${normalizedExistingEmail}', Existing Phone: '${normalizedExistingPhone}'`);
-            console.log(`SUBMIT: Comparing Email - Input: '${normalizedEmail}', Existing: '${normalizedExistingEmail}', Match: ${normalizedExistingEmail === normalizedEmail}`);
-            console.log(`SUBMIT: Comparing Phone - Input: '${normalizedPhone}', Existing: '${normalizedExistingPhone}', Match: ${normalizedExistingPhone === normalizedPhone}`);
+          console.log(`SUBMIT: Row ${rowNumber} - Existing Email: '${normalizedExistingEmail}', Existing Phone: '${normalizedExistingPhone}'`);
+          console.log(`SUBMIT: Comparing Email - Input: '${normalizedEmail}', Existing: '${normalizedExistingEmail}', Match: ${normalizedExistingEmail === normalizedEmail}`);
+          console.log(`SUBMIT: Comparing Phone - Input: '${normalizedPhone}', Existing: '${normalizedExistingPhone}', Match: ${normalizedExistingPhone === normalizedPhone}`);
 
-            if (normalizedExistingEmail && normalizedExistingEmail === normalizedEmail) {
-              emailExists = true;
-            }
-            if (normalizedExistingPhone && normalizedExistingPhone === normalizedPhone) {
-              phoneExists = true;
-            }
-          });
-
-          if (emailExists || phoneExists) {
-            console.log('SUBMIT: Duplicate check - Email exists:', emailExists, 'Phone exists:', phoneExists);
-            const errorMessage = getDuplicateErrorMessage(emailExists, phoneExists);
-            submissionResult = { status: 400, body: { success: false, error: errorMessage } };
-            return;
-          } else {
-            console.log('SUBMIT: No duplicates found, proceeding to add new row.');
+          if (normalizedExistingEmail && normalizedExistingEmail === normalizedEmail) {
+            emailExists = true;
           }
-        } catch (rowError) {
-          console.error('SUBMIT: Error accessing rows, likely corrupted file:', rowError.message, rowError.stack);
-          workbook = await initializeExcel();
-          sheet = workbook.getWorksheet('Customers');
-          if (existingData.length > 0) {
-            existingData.forEach(rowData => {
-              const newRow = sheet.addRow(rowData);
-              newRow.commit();
-              console.log('SUBMIT: Re-added existing row during duplicate check recreation:', rowData);
-            });
-          } else {
-            console.warn('SUBMIT: No existing data could be extracted due to corruption; previous data may be lost');
+          if (normalizedExistingPhone && normalizedExistingPhone === normalizedPhone) {
+            phoneExists = true;
           }
-          await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-          console.log('SUBMIT: Recreated Excel file due to row access error:', LOCAL_EXCEL_FILE);
+        });
+
+        if (emailExists || phoneExists) {
+          console.log('SUBMIT: Duplicate check - Email exists:', emailExists, 'Phone exists:', phoneExists);
+          const errorMessage = getDuplicateErrorMessage(emailExists, phoneExists);
+          submissionResult = { status: 400, body: { success: false, error: errorMessage } };
+          return;
+        } else {
+          console.log('SUBMIT: No duplicates found, proceeding to add new row.');
         }
 
+        // Step 4: Add the new row
         console.log('SUBMIT: Adding new row to worksheet...');
         const newRow = sheet.addRow([name, email, phone]);
         newRow.commit();
         console.log('SUBMIT: Added new row to worksheet:', [name, email, phone]);
 
+        // Step 5: Save the file with retries
         console.log('SUBMIT: Checking disk space and permissions before saving...');
         await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
         let writeAttempts = 0;
@@ -531,36 +510,38 @@ app.post('/submit', async (req, res) => {
           }
         }
 
-        // Verify the local file contents after saving
+        // Step 6: Verify the file contents after saving
         console.log('SUBMIT: Verifying file contents after save...');
         const updatedWorkbook = new ExcelJS.Workbook();
         await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
         const updatedSheet = updatedWorkbook.getWorksheet('Customers');
         console.log('SUBMIT: Local file contents after submission:');
+        let newRowFound = false;
         updatedSheet.eachRow((row, rowNumber) => {
           const rowName = row.getCell(1).value || '';
           const rowEmail = row.getCell(2).value || '';
           const rowPhone = row.getCell(3).value || '';
           console.log(`SUBMIT: Row ${rowNumber}:`, [rowName, rowEmail, rowPhone]);
+          if (rowName === name && rowEmail === email && rowPhone === phone) {
+            newRowFound = true;
+          }
         });
 
-        localChangesPending = true; // Set flag to indicate local changes
-        console.log('SUBMIT: Attempting to upload to Google Drive...');
-        try {
-          await uploadToGoogleDrive();
-          console.log('SUBMIT: Successfully uploaded to Google Drive.');
-          submissionResult = { status: 200, body: { success: true, name } };
-        } catch (syncError) {
-          console.error('SUBMIT: Google Drive sync failed after local write:', syncError.message, syncError.stack);
-          submissionResult = { 
-            status: 200, 
-            body: { 
-              success: true, 
-              name, 
-              warning: 'Data saved locally, but failed to sync to Google Drive. Please contact support.'
-            }
-          };
+        if (!newRowFound) {
+          console.error('SUBMIT: New row not found in file after save. Attempting to recreate file...');
+          workbook = await initializeExcel();
+          sheet = workbook.getWorksheet('Customers');
+          const newRow = sheet.addRow([name, email, phone]);
+          newRow.commit();
+          await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          console.log('SUBMIT: Recreated Excel file with only the new row:', LOCAL_EXCEL_FILE);
+        } else {
+          console.log('SUBMIT: New row successfully verified in file.');
         }
+
+        // Step 7: Set response (Google Drive upload disabled)
+        submissionResult = { status: 200, body: { success: true, name } };
       } catch (error) {
         throw error;
       }
