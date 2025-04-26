@@ -100,13 +100,22 @@ async function validateWorkbook(workbook) {
       throw new Error(`Invalid worksheet headers. Expected ${expectedHeaders}, got ${actualHeaders}`);
     }
 
+    let hasDataRows = false;
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return;
       const name = row.getCell(1).value;
       const email = row.getCell(2).value;
       const phone = row.getCell(3).value;
-      console.log(`Validated row ${rowNumber}:`, [name, email, phone]);
+      if (name || email || phone) {
+        hasDataRows = true;
+        console.log(`Validated row ${rowNumber}:`, [name, email, phone]);
+      }
     });
+
+    // A workbook with only a header row is still valid
+    if (!hasDataRows) {
+      console.log('Workbook has no data rows, but header is valid');
+    }
     return true;
   } catch (error) {
     console.error('Workbook validation failed:', error.message, error.stack);
@@ -130,10 +139,11 @@ async function extractExistingData(workbook) {
         const name = row.getCell(1).value;
         const email = row.getCell(2).value;
         const phone = row.getCell(3).value;
-        if (name && email && phone) {
+        // Only include rows with all fields present and non-empty
+        if (name && email && phone && name.toString().trim() && email.toString().trim() && phone.toString().trim()) {
           data.push([name, email, phone]);
         } else {
-          console.warn(`Row ${rowNumber} has missing data:`, [name, email, phone]);
+          console.warn(`Row ${rowNumber} has missing or empty data, skipping:`, [name, email, phone]);
         }
       } catch (error) {
         console.error(`Failed to extract row ${rowNumber}:`, error.message, error.stack);
@@ -518,7 +528,7 @@ function getDuplicateErrorMessage(emailExists, phoneExists) {
   } else if (emailExists) {
     return 'Email already exists';
   } else {
-    return 'Phone number already exists';
+    return 'Phone number already exist';
   }
 }
 
@@ -607,8 +617,10 @@ app.post('/submit', async (req, res) => {
           const name = row.getCell(1).value || '';
           const email = row.getCell(2).value || '';
           const phone = row.getCell(3).value || '';
-          existingRows.push([name, email, phone]);
-          console.log(`SUBMIT: Existing Row ${rowNumber}:`, [name, email, phone]);
+          if (name && email && phone) {
+            existingRows.push([name, email, phone]);
+            console.log(`SUBMIT: Existing Row ${rowNumber}:`, [name, email, phone]);
+          }
         });
 
         // Step 3: Check for duplicates
@@ -845,7 +857,7 @@ app.post('/delete', async (req, res) => {
             console.log(`DELETE: Found matching row ${rowNumber} to delete:`, [row.getCell(1).value, normalizedExistingEmail, normalizedExistingPhone]);
             rowFound = true;
           } else {
-            rowsToKeep.push(row.values);
+            rowsToKeep.push([row.getCell(1).value, row.getCell(2).value, row.getCell(3).value]);
           }
         });
 
