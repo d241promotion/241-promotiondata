@@ -157,13 +157,23 @@ async function extractExistingData(workbook) {
 async function loadLocalExcel() {
   if (cachedWorkbook) {
     console.log('LOAD: Using cached workbook');
+    console.log('LOAD: Cached workbook contents:');
+    const sheet = cachedWorkbook.getWorksheet('Customers');
+    sheet.eachRow((row, rowNumber) => {
+      const name = row.getCell(1).value || '';
+      const email = row.getCell(2).value || '';
+      const phone = row.getCell(3).value || '';
+      console.log(`LOAD: Cached Row ${rowNumber}:`, [name, email, phone]);
+    });
     const isValid = await validateWorkbook(cachedWorkbook);
     if (isValid) {
       return cachedWorkbook;
     } else {
-      console.log('LOAD: Cached workbook is invalid, reloading from disk...');
+      console.log('LOAD: Cached workbook is invalid, clearing cache and reloading from disk...');
       cachedWorkbook = null;
     }
+  } else {
+    console.log('LOAD: No cached workbook found');
   }
 
   let workbook;
@@ -173,6 +183,8 @@ async function loadLocalExcel() {
     if (!fileExists) {
       console.log('LOAD: Local Excel file does not exist, downloading from Google Drive...');
       await downloadFromGoogleDrive();
+    } else {
+      console.log('LOAD: Local Excel file exists, loading from disk...');
     }
 
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
@@ -204,6 +216,7 @@ async function loadLocalExcel() {
         throw new Error('Failed to create Excel file after recreation');
       }
       console.log('Verified: Excel file exists after recreation');
+      cachedWorkbook = workbook; // Update cache after recreation
     }
   } catch (error) {
     console.log('Local Excel file not found, inaccessible, or invalid, initializing new one:', error.message);
@@ -242,6 +255,7 @@ async function loadLocalExcel() {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
+    cachedWorkbook = workbook; // Update cache after initialization
   }
 
   cachedWorkbook = workbook;
@@ -250,16 +264,20 @@ async function loadLocalExcel() {
 
 // Download the Excel file from Google Drive
 async function downloadFromGoogleDrive() {
+  console.log(`DOWNLOAD: localChangesPending state: ${localChangesPending}`);
   if (localChangesPending) {
     console.log('Skipping Google Drive download due to pending local changes');
     return;
   }
 
   try {
+    console.log('DOWNLOAD: Querying Google Drive for customers.xlsx...');
     const response = await drive.files.list({
       q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
-      fields: 'files(id)',
+      fields: 'files(id, name, trashed)',
     });
+
+    console.log('DOWNLOAD: Google Drive files found:', response.data.files);
 
     if (response.data.files.length > 0) {
       const fileId = response.data.files[0].id;
@@ -298,9 +316,12 @@ async function downloadFromGoogleDrive() {
         await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
         await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Recreation');
         console.log('Recreated Excel file with existing data after download:', LOCAL_EXCEL_FILE);
+        cachedWorkbook = newWorkbook; // Update cache after recreation
+      } else {
+        cachedWorkbook = workbook; // Update cache after download
       }
 
-      const sheet = workbook.getWorksheet('Customers');
+      const sheet = cachedWorkbook.getWorksheet('Customers');
       console.log('File contents after sync:');
       console.log('Column keys:', sheet.columns.map(col => col.key));
       sheet.eachRow((row, rowNumber) => {
@@ -317,15 +338,23 @@ async function downloadFromGoogleDrive() {
           }
         }
       });
-
-      cachedWorkbook = workbook;
     } else {
       console.log('No Excel file found in Google Drive, initializing new one locally.');
       const workbook = await initializeExcel();
       await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE, true);
       await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
       await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Initialization');
-      cachedWorkbook = workbook;
+      cachedWorkbook = workbook; // Update cache after initialization
+
+      // Log the contents of the newly initialized file
+      const sheet = workbook.getWorksheet('Customers');
+      console.log('Newly initialized file contents:');
+      sheet.eachRow((row, rowNumber) => {
+        const name = row.getCell(1).value || '';
+        const email = row.getCell(2).value || '';
+        const phone = row.getCell(3).value || '';
+        console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone]);
+      });
     }
   } catch (error) {
     console.error('Error downloading from Google Drive:', error.message, error.stack);
@@ -333,7 +362,17 @@ async function downloadFromGoogleDrive() {
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE, true);
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Error Recovery');
-    cachedWorkbook = workbook;
+    cachedWorkbook = workbook; // Update cache after error recovery
+
+    // Log the contents of the newly initialized file
+    const sheet = workbook.getWorksheet('Customers');
+    console.log('File contents after error recovery:');
+    sheet.eachRow((row, rowNumber) => {
+      const name = row.getCell(1).value || '';
+      const email = row.getCell(2).value || '';
+      const phone = row.getCell(3).value || '';
+      console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone]);
+    });
   }
 }
 
@@ -452,6 +491,7 @@ async function initializeFromGoogleDrive() {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
+    cachedWorkbook = workbook; // Update cache after initialization
   }
 
   const workbook = new ExcelJS.Workbook();
@@ -557,6 +597,7 @@ app.post('/submit', async (req, res) => {
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
           }
+          cachedWorkbook = workbook; // Update cache after forced recreation
         }
 
         console.log('SUBMIT: Collecting existing rows before adding new row...');
