@@ -417,7 +417,7 @@ async function downloadBackupFromGoogleDrive() {
 }
 
 // Upload the local Excel file to Google Drive with retry
-async function uploadToGoogleDrive(maxRetries = 3) {
+async function uploadToGoogleDrive(maxRetries = 5) {
   let retries = 0;
   while (retries < maxRetries) {
     try {
@@ -472,7 +472,7 @@ async function uploadToGoogleDrive(maxRetries = 3) {
       retries++;
       console.error(`Failed to upload to Google Drive (attempt ${retries}/${maxRetries}):`, error.message, error.stack);
       if (retries === maxRetries) {
-        throw error;
+        throw new Error(`Failed to upload to Google Drive after ${maxRetries} attempts: ${error.message}`);
       }
       // Wait before retrying (exponential backoff)
       await new Promise(resolve => setTimeout(resolve, 1000 * retries));
@@ -643,12 +643,30 @@ app.post('/submit', async (req, res) => {
         let workbook;
         let sheet;
 
-        // Step 1: Load the existing Excel file
+        // Step 1: Sync with Google Drive if no pending local changes
+        console.log('SUBMIT: Checking sync status before submission...');
+        if (!localChangesPending) {
+          console.log('SUBMIT: No pending local changes, syncing with Google Drive...');
+          await downloadFromGoogleDrive();
+        } else {
+          console.log('SUBMIT: Pending local changes detected, using local file.');
+        }
+
+        // Step 2: Load the existing Excel file
         console.log('SUBMIT: Loading local Excel file...');
         try {
           workbook = await loadLocalExcel();
           sheet = workbook.getWorksheet('Customers');
           console.log('SUBMIT: Successfully loaded local Excel file:', LOCAL_EXCEL_FILE);
+
+          // Log file contents before submission
+          console.log('SUBMIT: File contents before submission:');
+          sheet.eachRow((row, rowNumber) => {
+            const name = row.getCell(1).value || '';
+            const email = row.getCell(2).value || '';
+            const phone = row.getCell(3).value || '';
+            console.log(`SUBMIT: Row ${rowNumber}:`, [name, email, phone]);
+          });
         } catch (loadError) {
           console.error('SUBMIT: Failed to load Excel file, forcing recreation:', loadError.message, loadError.stack);
           workbook = await initializeExcel();
@@ -683,7 +701,7 @@ app.post('/submit', async (req, res) => {
           }
         }
 
-        // Step 2: Collect all existing rows (excluding header)
+        // Step 3: Collect all existing rows (excluding header)
         console.log('SUBMIT: Collecting existing rows before adding new row...');
         const existingRows = [];
         sheet.eachRow((row, rowNumber) => {
@@ -697,7 +715,7 @@ app.post('/submit', async (req, res) => {
           }
         });
 
-        // Step 3: Check for duplicates
+        // Step 4: Check for duplicates
         console.log('SUBMIT: Checking for duplicates...');
         let emailExists = false;
         let phoneExists = false;
@@ -732,11 +750,11 @@ app.post('/submit', async (req, res) => {
           console.log('SUBMIT: No duplicates found, proceeding to add new row.');
         }
 
-        // Step 4: Add the new row to the list
+        // Step 5: Add the new row to the list
         existingRows.push([name, email, phone]);
         console.log('SUBMIT: Added new row to list:', [name, email, phone]);
 
-        // Step 5: Recreate the worksheet with contiguous rows
+        // Step 6: Recreate the worksheet with contiguous rows
         console.log('SUBMIT: Recreating worksheet with contiguous rows...');
         workbook.removeWorksheet('Customers');
         const newSheet = workbook.addWorksheet('Customers');
@@ -752,7 +770,7 @@ app.post('/submit', async (req, res) => {
           console.log(`SUBMIT: Added row ${index + 2} to new worksheet:`, rowValues);
         });
 
-        // Step 6: Save the file with retries
+        // Step 7: Save the file with retries
         console.log('SUBMIT: Checking disk space and permissions before saving...');
         await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
         let writeAttempts = 0;
@@ -777,7 +795,7 @@ app.post('/submit', async (req, res) => {
         }
         await logFileStats(LOCAL_EXCEL_FILE, 'SUBMIT: After Save');
 
-        // Step 7: Verify the file contents after saving
+        // Step 8: Verify the file contents after saving
         console.log('SUBMIT: Verifying file contents after save...');
         const updatedWorkbook = new ExcelJS.Workbook();
         await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
@@ -808,11 +826,11 @@ app.post('/submit', async (req, res) => {
           console.log('SUBMIT: New row successfully verified in file.');
         }
 
-        // Step 8: Upload to Google Drive
+        // Step 9: Upload to Google Drive with more retries
         console.log('SUBMIT: Attempting to upload to Google Drive...');
         localChangesPending = true; // Set flag to indicate local changes
         try {
-          await uploadToGoogleDrive();
+          await uploadToGoogleDrive(5); // Increased retries
           console.log('SUBMIT: Successfully uploaded to Google Drive.');
           submissionResult = { status: 200, body: { success: true, name } };
         } catch (syncError) {
@@ -996,10 +1014,11 @@ app.post('/delete', async (req, res) => {
           console.log(`DELETE: Row ${rowNumber}:`, [name, email, phone]);
         });
 
+        // Step: Upload to Google Drive with more retries
         localChangesPending = true; // Set flag to indicate local changes
         console.log('DELETE: Attempting to upload to Google Drive...');
         try {
-          await uploadToGoogleDrive();
+          await uploadToGoogleDrive(5); // Increased retries
           console.log('DELETE: Successfully uploaded to Google Drive.');
           deletionResult = { status: 200, body: { success: true, message: 'Customer deleted successfully' } };
         } catch (syncError) {
@@ -1008,7 +1027,7 @@ app.post('/delete', async (req, res) => {
             status: 200, 
             body: { 
               success: true, 
-              message: 'Customer deleted locally, but failed to sync to Google Drive. Please contact support.'
+              message: 'Customer deleted locally, but failed to sync to Google Drive. It will be synced periodically.'
             }
           };
         }
