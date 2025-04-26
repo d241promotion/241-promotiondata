@@ -80,7 +80,7 @@ async function validateWorkbook(workbook) {
     // Try accessing a few rows to ensure the file is not corrupted
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return;
-      const name = row.getCell(1).value; // Use column index to avoid key-based issues
+      const name = row.getCell(1).value;
       const email = row.getCell(2).value;
       const phone = row.getCell(3).value;
       console.log(`Validated row ${rowNumber}:`, [name, email, phone]);
@@ -137,6 +137,7 @@ async function extractExistingData(workbook) {
 // Load the local Excel file or initialize a new one
 async function loadLocalExcel() {
   let workbook;
+  let existingData = [];
   try {
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
     workbook = new ExcelJS.Workbook();
@@ -146,7 +147,20 @@ async function loadLocalExcel() {
     // Validate the workbook
     const isValid = await validateWorkbook(workbook);
     if (!isValid) {
-      throw new Error('Workbook is corrupted or invalid');
+      console.log('Workbook validation failed, extracting data before recreation...');
+      existingData = await extractExistingData(workbook);
+      workbook = await initializeExcel();
+      const sheet = workbook.getWorksheet('Customers');
+      if (existingData.length > 0) {
+        existingData.forEach(rowData => {
+          const newRow = sheet.addRow(rowData);
+          newRow.commit();
+          console.log('Re-added existing row during load:', rowData);
+        });
+      }
+      await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      console.log('Recreated Excel file with existing data:', LOCAL_EXCEL_FILE);
     }
   } catch (error) {
     console.log('Local Excel file not found, inaccessible, or invalid, initializing new one:', error.message);
@@ -178,8 +192,7 @@ async function createBackup() {
 async function downloadFromGoogleDrive() {
   try {
     const response = await drive.files.list({
-      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
-      fields: 'files(id)',
+      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false complementary fields: 'files(id)',
     });
 
     if (response.data.files.length > 0) {
@@ -204,9 +217,32 @@ async function downloadFromGoogleDrive() {
       await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
       const isValid = await validateWorkbook(workbook);
       if (!isValid) {
-        console.log('Downloaded file from Google Drive is corrupted, initializing new one');
-        throw new Error('Downloaded file is corrupted');
+        console.log('Downloaded file from Google Drive is corrupted, extracting data before recreation...');
+        const existingData = await extractExistingData(workbook);
+        const newWorkbook = await initializeExcel();
+        const sheet = newWorkbook.getWorksheet('Customers');
+        if (existingData.length > 0) {
+          existingData.forEach(rowData => {
+            const newRow = sheet.addRow(rowData);
+            newRow.commit();
+            console.log('Re-added existing row after download:', rowData);
+          });
+        }
+        await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+        await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+        console.log('Recreated Excel file with existing data after download:', LOCAL_EXCEL_FILE);
       }
+
+      // Log the contents of the file after downloading
+      const sheet = workbook.getWorksheet('Customers');
+      console.log('File contents after sync:');
+      sheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) {
+          console.log('Headers:', row.values);
+        } else {
+          console.log(`Row ${rowNumber}:`, [row.getCell('name').value, row.getCell('email').value, row.getCell('phone').value]);
+        }
+      });
 
       // Update the local backup after downloading
       await createBackup();
@@ -313,7 +349,20 @@ async function initializeFromGoogleDrive() {
       console.log('Restored local backup to main file:', LOCAL_EXCEL_FILE);
       return;
     } else {
-      console.log('Local backup is corrupted, proceeding with Google Drive initialization');
+      console.log('Local backup is corrupted, extracting data before recreation...');
+      const existingData = await extractExistingData(workbook);
+      workbook = await initializeExcel();
+      const sheet = workbook.getWorksheet('Customers');
+      if (existingData.length > 0) {
+        existingData.forEach(rowData => {
+          const newRow = sheet.addRow(rowData);
+          newRow.commit();
+          console.log('Re-added existing row from backup:', rowData);
+        });
+      }
+      await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      console.log('Recreated Excel file from backup with existing data:', LOCAL_EXCEL_FILE);
     }
   } catch (error) {
     console.log('Local backup not found or invalid, proceeding with Google Drive initialization:', error.message);
@@ -389,18 +438,36 @@ app.post('/submit', async (req, res) => {
 
         let emailExists = false;
         let phoneExists = false;
+        let existingData = [];
         try {
+          // Extract existing data before duplicate check for safety
+          existingData = await extractExistingData(workbook);
+
+          // Normalize the input email and phone for comparison
+          const normalizedEmail = email.toLowerCase().trim();
+          const normalizedPhone = phone.toString().trim();
+
           sheet.eachRow((row, rowNumber) => {
             if (rowNumber === 1) return;
             const existingEmail = row.getCell('email').value;
             const existingPhone = row.getCell('phone').value;
-            if (existingEmail && existingEmail.toLowerCase() === email.toLowerCase()) {
+
+            // Normalize existing values for comparison
+            const normalizedExistingEmail = existingEmail ? existingEmail.toString().toLowerCase().trim() : '';
+            const normalizedExistingPhone = existingPhone ? existingPhone.toString().trim() : '';
+
+            console.log(`Row ${rowNumber} - Existing Email: '${normalizedExistingEmail}', Existing Phone: '${normalizedExistingPhone}'`);
+            console.log(`Comparing Email - Input: '${normalizedEmail}', Existing: '${normalizedExistingEmail}', Match: ${normalizedExistingEmail === normalizedEmail}`);
+            console.log(`Comparing Phone - Input: '${normalizedPhone}', Existing: '${normalizedExistingPhone}', Match: ${normalizedExistingPhone === normalizedPhone}`);
+
+            if (normalizedExistingEmail && normalizedExistingEmail === normalizedEmail) {
               emailExists = true;
             }
-            if (existingPhone && existingPhone.toString() === phone.toString()) {
+            if (normalizedExistingPhone && normalizedExistingPhone === normalizedPhone) {
               phoneExists = true;
             }
           });
+
           if (emailExists || phoneExists) {
             console.log('Duplicate check (sheet.eachRow) - Email exists:', emailExists, 'Phone exists:', phoneExists);
             const errorMessage = getDuplicateErrorMessage(emailExists, phoneExists);
@@ -412,10 +479,19 @@ app.post('/submit', async (req, res) => {
           // If accessing rows fails (e.g., Out of bounds error), recreate the file
           workbook = await initializeExcel();
           sheet = workbook.getWorksheet('Customers');
+          // Re-add existing data
+          if (existingData.length > 0) {
+            existingData.forEach(rowData => {
+              const newRow = sheet.addRow(rowData);
+              newRow.commit();
+              console.log('Re-added existing row during duplicate check recreation:', rowData);
+            });
+          } else {
+            console.warn('No existing data could be extracted due to corruption; previous data may be lost');
+          }
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
           await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
           console.log('Recreated Excel file due to row access error:', LOCAL_EXCEL_FILE);
-          // No need to re-check duplicates since the file is now empty
         }
 
         const newRow = sheet.addRow([name, email, phone]);
@@ -429,7 +505,7 @@ app.post('/submit', async (req, res) => {
         } catch (writeError) {
           console.error('Failed to write to Excel file, attempting to recreate:', writeError.message, writeError.stack);
           // If writing fails, recreate the file and retry
-          const existingData = await extractExistingData(workbook);
+          existingData = await extractExistingData(workbook);
           workbook = await initializeExcel();
           const retrySheet = workbook.getWorksheet('Customers');
           // Re-add existing data
