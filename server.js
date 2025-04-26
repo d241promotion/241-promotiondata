@@ -14,6 +14,8 @@ const GOOGLE_DRIVE_FOLDER_ID = '1l4e6cq0LaFS2IFkJlWKLFJ_CVIEqPqTK';
 
 // Use a promise-based lock to prevent concurrent file access
 let fileLockPromise = Promise.resolve();
+// Flag to indicate if a local change has been made but not yet synced to Google Drive
+let localChangesPending = false;
 
 const auth = new google.auth.GoogleAuth({
   credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT),
@@ -179,6 +181,12 @@ async function createBackup() {
 
 // Download the Excel file from Google Drive
 async function downloadFromGoogleDrive() {
+  // Skip download if there are pending local changes
+  if (localChangesPending) {
+    console.log('Skipping Google Drive download due to pending local changes');
+    return;
+  }
+
   try {
     const response = await drive.files.list({
       q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
@@ -306,6 +314,7 @@ async function uploadToGoogleDrive(maxRetries = 3) {
         });
         console.log('Created new file in Google Drive, ID:', file.data.id);
       }
+      localChangesPending = false; // Reset flag after successful upload
       return true; // Success
     } catch (error) {
       retries++;
@@ -512,10 +521,23 @@ app.post('/submit', async (req, res) => {
           newRetryRow.commit();
           console.log('Added new row after write failure:', [name, email, phone]);
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE); // Fixed: Correct workbook variable
           console.log('Recreated and saved to Excel file after write failure:', LOCAL_EXCEL_FILE);
         }
 
+        // Verify the local file contents after saving
+        const updatedWorkbook = new ExcelJS.Workbook();
+        await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+        const updatedSheet = updatedWorkbook.getWorksheet('Customers');
+        console.log('Local file contents after submission:');
+        updatedSheet.eachRow((row, rowNumber) => {
+          const rowName = row.getCell(1).value || '';
+          const rowEmail = row.getCell(2).value || '';
+          const rowPhone = row.getCell(3).value || '';
+          console.log(`Row ${rowNumber}:`, [rowName, rowEmail, rowPhone]);
+        });
+
+        localChangesPending = true; // Set flag to indicate local changes
         try {
           await uploadToGoogleDrive();
           submissionResult = { status: 200, body: { success: true, name } };
@@ -658,7 +680,7 @@ app.post('/delete', async (req, res) => {
             console.log(`Re-added row ${index + 1} after write failure during deletion:`, rowValues);
           });
           await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+          await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE); // Fixed: Use newWorkbook
           console.log('Recreated and saved to Excel file after write failure during deletion:', LOCAL_EXCEL_FILE);
         }
 
@@ -674,6 +696,7 @@ app.post('/delete', async (req, res) => {
           console.log(`Row ${rowNumber}:`, [name, email, phone]);
         });
 
+        localChangesPending = true; // Set flag to indicate local changes
         try {
           await uploadToGoogleDrive();
           deletionResult = { status: 200, body: { success: true, message: 'Customer deleted successfully' } };
