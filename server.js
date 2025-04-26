@@ -246,7 +246,7 @@ async function loadLocalExcel() {
   return workbook;
 }
 
-// Create a backup of the local Excel file
+// Create a backup of the local Excel file and upload to Google Drive
 async function createBackup() {
   try {
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
@@ -254,8 +254,42 @@ async function createBackup() {
     await fs.copyFile(LOCAL_EXCEL_FILE, LOCAL_BACKUP_FILE);
     await logFileStats(LOCAL_BACKUP_FILE, 'BACKUP: After');
     console.log('Created backup of Excel file:', LOCAL_BACKUP_FILE);
+
+    // Upload the backup file to Google Drive
+    console.log('BACKUP: Uploading backup file to Google Drive...');
+    const existingFiles = await drive.files.list({
+      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers_backup.xlsx' and trashed = false`,
+      fields: 'files(id, name)',
+    });
+
+    const fileMetadata = {
+      name: 'customers_backup.xlsx',
+      parents: [GOOGLE_DRIVE_FOLDER_ID],
+    };
+
+    const media = {
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      body: require('fs').createReadStream(LOCAL_BACKUP_FILE),
+    };
+
+    if (existingFiles.data.files.length > 0) {
+      const fileId = existingFiles.data.files[0].id;
+      await drive.files.update({
+        fileId: fileId,
+        media: media,
+        fields: 'id',
+      });
+      console.log('BACKUP: Updated backup file in Google Drive, ID:', fileId);
+    } else {
+      const file = await drive.files.create({
+        resource: fileMetadata,
+        media: media,
+        fields: 'id',
+      });
+      console.log('BACKUP: Created new backup file in Google Drive, ID:', file.data.id);
+    }
   } catch (error) {
-    console.error('Failed to create backup:', error.message, error.stack);
+    console.error('Failed to create or upload backup:', error.message, error.stack);
   }
 }
 
@@ -349,6 +383,39 @@ async function downloadFromGoogleDrive() {
   }
 }
 
+// Download the backup file from Google Drive
+async function downloadBackupFromGoogleDrive() {
+  try {
+    const response = await drive.files.list({
+      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers_backup.xlsx' and trashed = false`,
+      fields: 'files(id)',
+    });
+
+    if (response.data.files.length > 0) {
+      const fileId = response.data.files[0].id;
+      const file = await drive.files.get(
+        { fileId, alt: 'media' },
+        { responseType: 'stream' }
+      );
+
+      await new Promise((resolve, reject) => {
+        const dest = require('fs').createWriteStream(LOCAL_BACKUP_FILE);
+        file.data
+          .on('error', reject)
+          .pipe(dest)
+          .on('error', reject)
+          .on('finish', resolve);
+      });
+      console.log('Downloaded backup file from Google Drive to local:', LOCAL_BACKUP_FILE);
+      await logFileStats(LOCAL_BACKUP_FILE, 'DOWNLOAD: After Backup Download');
+    } else {
+      console.log('No backup file found in Google Drive.');
+    }
+  } catch (error) {
+    console.error('Error downloading backup from Google Drive:', error.message, error.stack);
+  }
+}
+
 // Upload the local Excel file to Google Drive with retry
 async function uploadToGoogleDrive(maxRetries = 3) {
   let retries = 0;
@@ -434,62 +501,57 @@ function startGoogleDriveSync() {
 
 // Download the Excel file from Google Drive on server start, or use local backup
 async function initializeFromGoogleDrive() {
-  console.log('Google Drive initialization on server start is disabled for debugging');
+  console.log('INIT: Initializing server with data from Google Drive...');
 
-  // One-time deletion of both files to simulate a fresh start
-  console.log('INIT: Deleting existing Excel and backup files for testing...');
-  try {
-    await fs.unlink(LOCAL_EXCEL_FILE);
-    console.log('INIT: Deleted Excel file:', LOCAL_EXCEL_FILE);
-  } catch (error) {
-    console.log('INIT: Excel file not found, no deletion needed:', error.message);
-  }
-  try {
-    await fs.unlink(LOCAL_BACKUP_FILE);
-    console.log('INIT: Deleted backup file:', LOCAL_BACKUP_FILE);
-  } catch (error) {
-    console.log('INIT: Backup file not found, no deletion needed:', error.message);
-  }
+  // Step 1: Download the main Excel file from Google Drive
+  await downloadFromGoogleDrive();
 
-  let workbook;
-  try {
-    // Check if backup file exists
+  // Step 2: Download the backup file from Google Drive
+  await downloadBackupFromGoogleDrive();
+
+  // Step 3: If the main Excel file doesn't exist locally, try to restore from the backup
+  const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+  if (!fileExists) {
+    console.log('INIT: Main Excel file not found locally after download, attempting to restore from backup...');
     const backupExists = await fs.access(LOCAL_BACKUP_FILE).then(() => true).catch(() => false);
     if (backupExists) {
       await checkDiskSpaceAndPermissions(LOCAL_BACKUP_FILE);
       await logFileStats(LOCAL_BACKUP_FILE, 'INIT: Backup');
-      workbook = new ExcelJS.Workbook();
+      const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.readFile(LOCAL_BACKUP_FILE);
-      console.log('Loaded local backup file:', LOCAL_BACKUP_FILE);
+      console.log('INIT: Loaded local backup file:', LOCAL_BACKUP_FILE);
       const isValid = await validateWorkbook(workbook);
       if (isValid) {
         await fs.copyFile(LOCAL_BACKUP_FILE, LOCAL_EXCEL_FILE);
         await logFileStats(LOCAL_EXCEL_FILE, 'INIT: After Restore from Backup');
-        console.log('Restored local backup to main file:', LOCAL_EXCEL_FILE);
-        return;
+        console.log('INIT: Restored local backup to main file:', LOCAL_EXCEL_FILE);
       } else {
-        console.log('Local backup is corrupted, extracting data before recreation...');
+        console.log('INIT: Local backup is corrupted, extracting data before recreation...');
         const existingData = await extractExistingData(workbook);
-        workbook = await initializeExcel();
-        const sheet = workbook.getWorksheet('Customers');
+        const newWorkbook = await initializeExcel();
+        const sheet = newWorkbook.getWorksheet('Customers');
         if (existingData.length > 0) {
           existingData.forEach(rowData => {
             const newRow = sheet.addRow(rowData);
             newRow.commit();
-            console.log('Re-added existing row from backup:', rowData);
+            console.log('INIT: Re-added existing row from backup:', rowData);
           });
         }
         await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE, true);
-        await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+        await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
         await logFileStats(LOCAL_EXCEL_FILE, 'INIT: After Recreation from Backup');
-        console.log('Recreated Excel file from backup with existing data:', LOCAL_EXCEL_FILE);
+        console.log('INIT: Recreated Excel file from backup with existing data:', LOCAL_EXCEL_FILE);
       }
     } else {
-      throw new Error('Backup file does not exist');
+      console.log('INIT: No local backup found, using initialized Excel file from Google Drive download.');
     }
-  } catch (error) {
-    console.log('Local backup not found or invalid, initializing new Excel file:', error.message);
-    workbook = await initializeExcel();
+  }
+
+  // Step 4: Verify the main Excel file exists
+  const finalFileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+  if (!finalFileExists) {
+    console.log('INIT: Main Excel file still not found, creating a new one...');
+    const workbook = await initializeExcel();
     let fileCreated = false;
     let writeAttempts = 0;
     const maxWriteAttempts = 3;
@@ -499,18 +561,18 @@ async function initializeFromGoogleDrive() {
         await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE, true);
         await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
         await logFileStats(LOCAL_EXCEL_FILE, 'INIT: After New File Creation');
-        console.log('Initialized new Excel file on server start:', LOCAL_EXCEL_FILE);
+        console.log('INIT: Initialized new Excel file on server start:', LOCAL_EXCEL_FILE);
 
         // Verify file creation
         const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
         if (!fileExists) {
           throw new Error('Failed to create Excel file on server start');
         }
-        console.log('Verified: New Excel file exists on server start');
+        console.log('INIT: Verified: New Excel file exists on server start');
         fileCreated = true;
       } catch (writeError) {
         writeAttempts++;
-        console.error(`Failed to initialize new Excel file on server start (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
+        console.error(`INIT: Failed to initialize new Excel file on server start (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
         if (writeAttempts === maxWriteAttempts) {
           throw new Error(`Failed to initialize new Excel file on server start after ${maxWriteAttempts} attempts: ${writeError.message}`);
         }
@@ -519,6 +581,18 @@ async function initializeFromGoogleDrive() {
       }
     }
   }
+
+  // Step 5: Log the contents of the Excel file after initialization
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+  const sheet = workbook.getWorksheet('Customers');
+  console.log('INIT: Excel file contents after initialization:');
+  sheet.eachRow((row, rowNumber) => {
+    const name = row.getCell(1).value || '';
+    const email = row.getCell(2).value || '';
+    const phone = row.getCell(3).value || '';
+    console.log(`INIT: Row ${rowNumber}:`, [name, email, phone]);
+  });
 }
 
 // Helper function to generate the duplicate error message
@@ -528,7 +602,7 @@ function getDuplicateErrorMessage(emailExists, phoneExists) {
   } else if (emailExists) {
     return 'Email already exists';
   } else {
-    return 'Phone number already exist';
+    return 'Phone number already exists';
   }
 }
 
