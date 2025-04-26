@@ -139,7 +139,7 @@ async function extractExistingData(workbook) {
   return data;
 }
 
-// Load the local Excel file or initialize a new one
+// Load the local Excel file or initialize a new one with retries
 async function loadLocalExcel() {
   let workbook;
   let existingData = [];
@@ -167,18 +167,53 @@ async function loadLocalExcel() {
       await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
       await logFileStats(LOCAL_EXCEL_FILE, 'LOAD: After Recreation');
       console.log('Recreated Excel file with existing data:', LOCAL_EXCEL_FILE);
+
+      // Verify file creation
+      const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+      if (!fileExists) {
+        throw new Error('Failed to create Excel file after recreation');
+      }
+      console.log('Verified: Excel file exists after recreation');
     }
   } catch (error) {
     console.log('Local Excel file not found, inaccessible, or invalid, initializing new one:', error.message);
     workbook = await initializeExcel();
-    try {
-      await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-      await logFileStats(LOCAL_EXCEL_FILE, 'LOAD: After Initialization');
-      console.log('Initialized new Excel file:', LOCAL_EXCEL_FILE);
-    } catch (writeError) {
-      console.error('Failed to initialize new Excel file:', writeError.message, writeError.stack);
-      throw writeError;
+    let fileCreated = false;
+    let writeAttempts = 0;
+    const maxWriteAttempts = 3;
+
+    while (writeAttempts < maxWriteAttempts && !fileCreated) {
+      try {
+        await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+        await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+        await logFileStats(LOCAL_EXCEL_FILE, 'LOAD: After Initialization');
+        console.log('Initialized new Excel file:', LOCAL_EXCEL_FILE);
+
+        // Verify file creation
+        const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+        if (!fileExists) {
+          throw new Error('Failed to create Excel file after initialization');
+        }
+        console.log('Verified: New Excel file exists after initialization');
+
+        // Verify file contents
+        const verifyWorkbook = new ExcelJS.Workbook();
+        await verifyWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+        const sheet = verifyWorkbook.getWorksheet('Customers');
+        if (!sheet) {
+          throw new Error('Customers worksheet not found in newly created file');
+        }
+        console.log('Verified: New Excel file contains Customers worksheet');
+        fileCreated = true;
+      } catch (writeError) {
+        writeAttempts++;
+        console.error(`Failed to initialize new Excel file (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
+        if (writeAttempts === maxWriteAttempts) {
+          throw new Error(`Failed to initialize new Excel file after ${maxWriteAttempts} attempts: ${writeError.message}`);
+        }
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
   }
   return workbook;
@@ -393,10 +428,34 @@ async function initializeFromGoogleDrive() {
   } catch (error) {
     console.log('Local backup not found or invalid, initializing new Excel file:', error.message);
     workbook = await initializeExcel();
-    await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-    await logFileStats(LOCAL_EXCEL_FILE, 'INIT: After New File Creation');
-    console.log('Initialized new Excel file on server start:', LOCAL_EXCEL_FILE);
+    let fileCreated = false;
+    let writeAttempts = 0;
+    const maxWriteAttempts = 3;
+
+    while (writeAttempts < maxWriteAttempts && !fileCreated) {
+      try {
+        await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+        await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+        await logFileStats(LOCAL_EXCEL_FILE, 'INIT: After New File Creation');
+        console.log('Initialized new Excel file on server start:', LOCAL_EXCEL_FILE);
+
+        // Verify file creation
+        const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+        if (!fileExists) {
+          throw new Error('Failed to create Excel file on server start');
+        }
+        console.log('Verified: New Excel file exists on server start');
+        fileCreated = true;
+      } catch (writeError) {
+        writeAttempts++;
+        console.error(`Failed to initialize new Excel file on server start (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
+        if (writeAttempts === maxWriteAttempts) {
+          throw new Error(`Failed to initialize new Excel file on server start after ${maxWriteAttempts} attempts: ${writeError.message}`);
+        }
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
   }
 }
 
@@ -461,10 +520,34 @@ app.post('/submit', async (req, res) => {
           console.error('SUBMIT: Failed to load Excel file, forcing recreation:', loadError.message, loadError.stack);
           workbook = await initializeExcel();
           sheet = workbook.getWorksheet('Customers');
-          await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-          await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-          await logFileStats(LOCAL_EXCEL_FILE, 'SUBMIT: After Forced Recreation');
-          console.log('SUBMIT: Forced recreation of Excel file:', LOCAL_EXCEL_FILE);
+          let fileCreated = false;
+          let writeAttempts = 0;
+          const maxWriteAttempts = 3;
+
+          while (writeAttempts < maxWriteAttempts && !fileCreated) {
+            try {
+              await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+              await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+              await logFileStats(LOCAL_EXCEL_FILE, 'SUBMIT: After Forced Recreation');
+              console.log('SUBMIT: Forced recreation of Excel file:', LOCAL_EXCEL_FILE);
+
+              // Verify file creation
+              const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+              if (!fileExists) {
+                throw new Error('Failed to create Excel file during forced recreation');
+              }
+              console.log('SUBMIT: Verified: Excel file exists after forced recreation');
+              fileCreated = true;
+            } catch (writeError) {
+              writeAttempts++;
+              console.error(`SUBMIT: Failed to recreate Excel file (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
+              if (writeAttempts === maxWriteAttempts) {
+                throw new Error(`SUBMIT: Failed to recreate Excel file after ${maxWriteAttempts} attempts: ${writeError.message}`);
+              }
+              // Wait before retrying
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
         }
 
         // Step 2: Collect all existing rows (excluding header)
@@ -617,6 +700,10 @@ app.post('/submit', async (req, res) => {
     } else if (error.message.includes('Out of bounds')) {
       console.log('SUBMIT: Excel file has invalid column structure, already recreated in main flow.');
       res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
+    } else if (error.message.includes('Failed to initialize new Excel file')) {
+      res.status(500).json({ success: false, error: 'Failed to create Excel file. Please contact support.' });
+    } else if (error.message.includes('Failed to recreate Excel file')) {
+      res.status(500).json({ success: false, error: 'Failed to recreate Excel file. Please contact support.' });
     } else {
       res.status(500).json({ success: false, error: 'Unable to save your submission. Please try again later.' });
     }
