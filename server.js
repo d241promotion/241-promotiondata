@@ -216,7 +216,7 @@ async function loadLocalExcel() {
         throw new Error('Failed to create Excel file after recreation');
       }
       console.log('Verified: Excel file exists after recreation');
-      cachedWorkbook = workbook; // Update cache after recreation
+      cachedWorkbook = workbook;
     }
   } catch (error) {
     console.log('Local Excel file not found, inaccessible, or invalid, initializing new one:', error.message);
@@ -255,7 +255,7 @@ async function loadLocalExcel() {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
-    cachedWorkbook = workbook; // Update cache after initialization
+    cachedWorkbook = workbook;
   }
 
   cachedWorkbook = workbook;
@@ -316,9 +316,9 @@ async function downloadFromGoogleDrive() {
         await newWorkbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
         await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Recreation');
         console.log('Recreated Excel file with existing data after download:', LOCAL_EXCEL_FILE);
-        cachedWorkbook = newWorkbook; // Update cache after recreation
+        cachedWorkbook = newWorkbook;
       } else {
-        cachedWorkbook = workbook; // Update cache after download
+        cachedWorkbook = workbook;
       }
 
       const sheet = cachedWorkbook.getWorksheet('Customers');
@@ -344,9 +344,8 @@ async function downloadFromGoogleDrive() {
       await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE, true);
       await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
       await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Initialization');
-      cachedWorkbook = workbook; // Update cache after initialization
+      cachedWorkbook = workbook;
 
-      // Log the contents of the newly initialized file
       const sheet = workbook.getWorksheet('Customers');
       console.log('Newly initialized file contents:');
       sheet.eachRow((row, rowNumber) => {
@@ -362,9 +361,8 @@ async function downloadFromGoogleDrive() {
     await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE, true);
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Error Recovery');
-    cachedWorkbook = workbook; // Update cache after error recovery
+    cachedWorkbook = workbook;
 
-    // Log the contents of the newly initialized file
     const sheet = workbook.getWorksheet('Customers');
     console.log('File contents after error recovery:');
     sheet.eachRow((row, rowNumber) => {
@@ -377,25 +375,37 @@ async function downloadFromGoogleDrive() {
 }
 
 // Upload the local Excel file to Google Drive with retry
-async function uploadToGoogleDrive(maxRetries = 5) {
+async function uploadToGoogleDrive(maxRetries = 3) {
+  const startTime = Date.now();
+  console.log(`UPLOAD: Starting upload at ${new Date(startTime).toISOString()}`);
   let retries = 0;
   while (retries < maxRetries) {
     try {
+      console.log('UPLOAD: Checking local Excel file...');
       const stats = await fs.stat(LOCAL_EXCEL_FILE);
       if (stats.size === 0) {
         throw new Error('Local Excel file is empty');
       }
-      console.log('Local Excel file size:', stats.size, 'bytes');
+      console.log('UPLOAD: Local Excel file size:', stats.size, 'bytes');
       await logFileStats(LOCAL_EXCEL_FILE, 'UPLOAD: Before');
 
+      console.log('UPLOAD: Authenticating with Google Drive...');
       const authClient = await auth.getClient();
-      console.log('Google Drive authentication successful:', !!authClient);
+      console.log('UPLOAD: Google Drive authentication successful:', !!authClient);
+      if (!authClient) {
+        throw new Error('Google Drive authentication failed');
+      }
 
-      await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
+      console.log('UPLOAD: Checking folder access...');
+      await drive.files.get({ fileId: GOOGLE_DRIVE_FOLDER_ID, fields: 'id, name' });
+      console.log('UPLOAD: Folder access confirmed, ID:', GOOGLE_DRIVE_FOLDER_ID);
+
+      console.log('UPLOAD: Listing existing files in Google Drive...');
       const existingFiles = await drive.files.list({
         q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
         fields: 'files(id, name)',
       });
+      console.log('UPLOAD: Existing files found:', existingFiles.data.files);
 
       const fileMetadata = {
         name: 'customers.xlsx',
@@ -410,29 +420,41 @@ async function uploadToGoogleDrive(maxRetries = 5) {
       let file;
       if (existingFiles.data.files.length > 0) {
         const fileId = existingFiles.data.files[0].id;
+        console.log('UPLOAD: Updating existing file, ID:', fileId);
         file = await drive.files.update({
           fileId: fileId,
           media: media,
           fields: 'id',
         });
-        console.log('Updated file in Google Drive, ID:', file.data.id);
+        console.log('UPLOAD: Updated file in Google Drive, ID:', file.data.id);
       } else {
+        console.log('UPLOAD: Creating new file in Google Drive...');
         file = await drive.files.create({
           resource: fileMetadata,
           media: media,
           fields: 'id',
         });
-        console.log('Created new file in Google Drive, ID:', file.data.id);
+        console.log('UPLOAD: Created new file in Google Drive, ID:', file.data.id);
       }
       localChangesPending = false;
+      console.log('UPLOAD: Upload successful, localChangesPending set to false');
+      const endTime = Date.now();
+      console.log(`UPLOAD: Upload completed at ${new Date(endTime).toISOString()}, took ${(endTime - startTime) / 1000} seconds`);
       return true;
     } catch (error) {
       retries++;
-      console.error(`Failed to upload to Google Drive (attempt ${retries}/${maxRetries}):`, error.message, error.stack);
+      if (error.code === 429) {
+        console.error(`UPLOAD: Rate limit exceeded (attempt ${retries}/${maxRetries}):`, error.message);
+      } else {
+        console.error(`UPLOAD: Failed to upload to Google Drive (attempt ${retries}/${maxRetries}):`, error.message, error.stack);
+      }
+      console.error('UPLOAD: Error details:', JSON.stringify(error, null, 2));
       if (retries === maxRetries) {
         throw new Error(`Failed to upload to Google Drive after ${maxRetries} attempts: ${error.message}`);
       }
-      await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+      const delay = 5000; // 5 seconds delay between retries
+      console.log(`UPLOAD: Retrying after ${delay / 1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
   throw new Error('Failed to upload to Google Drive after maximum retries');
@@ -442,7 +464,10 @@ async function uploadToGoogleDrive(maxRetries = 5) {
 function startGoogleDriveSync() {
   console.log('Starting periodic Google Drive sync (every 5 minutes)...');
   setInterval(async () => {
+    const syncStartTime = Date.now();
+    console.log(`SYNC: Starting sync at ${new Date(syncStartTime).toISOString()}`);
     try {
+      console.log(`SYNC: Checking localChangesPending: ${localChangesPending}`);
       if (localChangesPending) {
         console.log('Periodic sync: Local changes detected, uploading to Google Drive...');
         await uploadToGoogleDrive();
@@ -452,7 +477,10 @@ function startGoogleDriveSync() {
       }
     } catch (error) {
       console.error('Periodic sync: Failed to sync with Google Drive:', error.message, error.stack);
+      console.error('Periodic sync: Error details:', JSON.stringify(error, null, 2));
     }
+    const syncEndTime = Date.now();
+    console.log(`SYNC: Sync completed at ${new Date(syncEndTime).toISOString()}, took ${(syncEndTime - syncStartTime) / 1000} seconds`);
   }, 5 * 60 * 1000);
 }
 
@@ -491,7 +519,7 @@ async function initializeFromGoogleDrive() {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
-    cachedWorkbook = workbook; // Update cache after initialization
+    cachedWorkbook = workbook;
   }
 
   const workbook = new ExcelJS.Workbook();
@@ -520,9 +548,10 @@ function getDuplicateErrorMessage(emailExists, phoneExists) {
 
 // Handle form submission
 app.post('/submit', async (req, res) => {
-  const { name, email, phone } = req.body;
+  const submitStartTime = Date.now();
+  console.log(`SUBMIT: Received submission at ${new Date(submitStartTime).toISOString()}:`, req.body);
 
-  console.log('SUBMIT: Received submission:', { name, email, phone });
+  const { name, email, phone } = req.body;
 
   if (!name || !email || !phone) {
     console.log('SUBMIT: Validation failed: Missing required fields');
@@ -597,7 +626,7 @@ app.post('/submit', async (req, res) => {
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
           }
-          cachedWorkbook = workbook; // Update cache after forced recreation
+          cachedWorkbook = workbook;
         }
 
         console.log('SUBMIT: Collecting existing rows before adding new row...');
@@ -691,7 +720,19 @@ app.post('/submit', async (req, res) => {
         cachedWorkbook = workbook;
 
         localChangesPending = true;
-        console.log('SUBMIT: Local changes marked for periodic sync to Google Drive.');
+        console.log('SUBMIT: Local changes marked for immediate sync to Google Drive.');
+
+        // Perform immediate sync to Google Drive
+        try {
+          console.log('SUBMIT: Starting immediate sync to Google Drive...');
+          await uploadToGoogleDrive();
+          console.log('SUBMIT: Immediate sync to Google Drive completed successfully.');
+        } catch (syncError) {
+          console.error('SUBMIT: Immediate sync to Google Drive failed:', syncError.message, syncError.stack);
+          console.error('SUBMIT: Immediate sync error details:', JSON.stringify(syncError, null, 2));
+          console.log('SUBMIT: Changes will be synced during the next periodic sync.');
+        }
+
         submissionResult = { status: 200, body: { success: true, name } };
       } catch (error) {
         throw error;
@@ -702,6 +743,8 @@ app.post('/submit', async (req, res) => {
 
     if (submissionResult) {
       console.log('SUBMIT: Sending response:', submissionResult.body);
+      const submitEndTime = Date.now();
+      console.log(`SUBMIT: Submission completed at ${new Date(submitEndTime).toISOString()}, took ${(submitEndTime - submitStartTime) / 1000} seconds`);
       res.status(submissionResult.status).json(submissionResult.body);
     } else {
       throw new Error('SUBMIT: Submission result not set');
@@ -730,9 +773,10 @@ app.post('/submit', async (req, res) => {
 
 // Handle row deletion
 app.post('/delete', async (req, res) => {
-  const { email, phone } = req.body;
+  const deleteStartTime = Date.now();
+  console.log(`DELETE: Received delete request at ${new Date(deleteStartTime).toISOString()}:`, req.body);
 
-  console.log('DELETE: Received delete request:', { email, phone });
+  const { email, phone } = req.body;
 
   if (!email && !phone) {
     console.log('DELETE: Validation failed: Email or phone required for deletion');
@@ -849,7 +893,19 @@ app.post('/delete', async (req, res) => {
         cachedWorkbook = workbook;
 
         localChangesPending = true;
-        console.log('DELETE: Local changes marked for periodic sync to Google Drive.');
+        console.log('DELETE: Local changes marked for immediate sync to Google Drive.');
+
+        // Perform immediate sync to Google Drive
+        try {
+          console.log('DELETE: Starting immediate sync to Google Drive...');
+          await uploadToGoogleDrive();
+          console.log('DELETE: Immediate sync to Google Drive completed successfully.');
+        } catch (syncError) {
+          console.error('DELETE: Immediate sync to Google Drive failed:', syncError.message, syncError.stack);
+          console.error('DELETE: Immediate sync error details:', JSON.stringify(syncError, null, 2));
+          console.log('DELETE: Changes will be synced during the next periodic sync.');
+        }
+
         deletionResult = { status: 200, body: { success: true, message: 'Customer deleted successfully' } };
       } catch (error) {
         throw error;
@@ -860,6 +916,8 @@ app.post('/delete', async (req, res) => {
 
     if (deletionResult) {
       console.log('DELETE: Sending response:', deletionResult.body);
+      const deleteEndTime = Date.now();
+      console.log(`DELETE: Deletion completed at ${new Date(deleteEndTime).toISOString()}, took ${(deleteEndTime - deleteStartTime) / 1000} seconds`);
       res.status(deletionResult.status).json(deletionResult.body);
     } else {
       throw new Error('DELETE: Deletion result not set');
