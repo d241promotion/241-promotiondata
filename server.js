@@ -263,9 +263,9 @@ async function loadLocalExcel() {
 }
 
 // Download the Excel file from Google Drive
-async function downloadFromGoogleDrive() {
-  console.log(`DOWNLOAD: localChangesPending state: ${localChangesPending}`);
-  if (localChangesPending) {
+async function downloadFromGoogleDrive(forceSync = false) {
+  console.log(`DOWNLOAD: localChangesPending state: ${localChangesPending}, forceSync: ${forceSync}`);
+  if (localChangesPending && !forceSync) {
     console.log('Skipping Google Drive download due to pending local changes');
     return;
   }
@@ -355,6 +355,10 @@ async function downloadFromGoogleDrive() {
         console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone]);
       });
     }
+
+    // Reset localChangesPending after successful sync
+    localChangesPending = false;
+    console.log('DOWNLOAD: Reset localChangesPending to false after sync');
   } catch (error) {
     console.error('Error downloading from Google Drive:', error.message, error.stack);
     const workbook = await initializeExcel();
@@ -371,6 +375,10 @@ async function downloadFromGoogleDrive() {
       const phone = row.getCell(3).value || '';
       console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone]);
     });
+
+    // Reset localChangesPending on error recovery
+    localChangesPending = false;
+    console.log('DOWNLOAD: Reset localChangesPending to false after error recovery');
   }
 }
 
@@ -487,7 +495,8 @@ function startGoogleDriveSync() {
 // Download the Excel file from Google Drive on server start
 async function initializeFromGoogleDrive() {
   console.log('INIT: Initializing server with data from Google Drive...');
-  await downloadFromGoogleDrive();
+  // Force sync even if localChangesPending is true
+  await downloadFromGoogleDrive(true);
 
   const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
   if (!fileExists) {
