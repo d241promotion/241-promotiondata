@@ -13,40 +13,24 @@
       position: relative;
       overflow-x: hidden;
       color: #333;
-      line-height: 1.6;
     }
     .hero {
       background: url('new images/pizza-box-wings.jpg') center/cover no-repeat;
       height: 300px;
-      position: relative;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
+      flex-direction: column;
       color: white;
       text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.7);
     }
-    .hero::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6));
-    }
     .hero img.logo {
       width: 200px;
-      position: relative;
-      z-index: 1;
       filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
     }
     .hero h1 {
-      position: relative;
-      z-index: 1;
       font-size: 2em;
       color: #F4A261;
-      margin: 10px 0;
     }
     .container {
       max-width: 600px;
@@ -55,22 +39,6 @@
       padding: 30px;
       border-radius: 15px;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-      position: relative;
-      animation: fadeIn 1s ease-in;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    h1 {
-      color: #E63946;
-      font-weight: bold;
-      font-size: 2.5em;
-      margin-bottom: 20px;
-    }
-    p {
-      font-size: 1.2em;
-      color: #666;
     }
     input {
       padding: 15px;
@@ -79,14 +47,6 @@
       border: 2px solid #E63946;
       border-radius: 8px;
       font-size: 1.1em;
-      transition: border-color 0.3s;
-    }
-    input:focus {
-      border-color: #F4A261;
-      outline: none;
-    }
-    input::placeholder {
-      color: #999;
     }
     button {
       background: #E63946;
@@ -94,104 +54,51 @@
       padding: 15px 30px;
       border: none;
       border-radius: 8px;
-      cursor: pointer;
       font-size: 1.3em;
       font-weight: bold;
-      transition: background 0.3s;
-    }
-    button:hover {
-      background: #F4A261;
-    }
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
     }
     .error {
       color: #E63946;
-      font-weight: bold;
       margin-top: 10px;
-    }
-    .loading {
-      display: none;
-      font-size: 1.2em;
-      color: #E63946;
-      margin-top: 10px;
-    }
-    @media (max-width: 600px) {
-      .hero { height: 200px; }
-      .hero img.logo { width: 150px; }
-      .container { padding: 15px; }
-      input { width: 100%; }
     }
   </style>
 </head>
 <body>
   <div class="hero">
-    <img src="new images/241-pizza-logo.png" alt="24/1 Pizza Logo" class="logo">
+    <img src="new images/241-pizza-logo.png" class="logo" alt="24/1 Pizza Logo">
     <h1>Spin to Win Delicious Prizes! 🍕</h1>
   </div>
   <div class="container">
     <h1>Enter to Spin!</h1>
-    <p>Fill in your details for a chance to win!</p>
     <form id="customer-form">
-      <input type="text" id="name" name="name" placeholder="Your Name" required><br>
-      <input type="email" id="email" name="email" placeholder="Email" required><br>
-      <input type="tel" id="phone" name="phone" placeholder="Phone (10 digits)" required><br>
-      <button type="submit" id="submit-btn">Spin!</button>
+      <input type="text" id="name" placeholder="Your Name" required><br>
+      <input type="email" id="email" placeholder="Email" required><br>
+      <input type="tel" id="phone" placeholder="Phone (10 digits)" required><br>
+      <button type="submit">Send OTP</button>
     </form>
     <div id="error" class="error"></div>
-    <div id="loading" class="loading">Sending OTP to your email...</div>
   </div>
 
   <script>
-    document.getElementById('customer-form').addEventListener('submit', async (e) => {
+    document.getElementById("customer-form").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const submitBtn = document.getElementById('submit-btn');
-      const errorDiv = document.getElementById('error');
-      const loadingDiv = document.getElementById('loading');
-      errorDiv.textContent = '';
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const errorDiv = document.getElementById("error");
+      errorDiv.textContent = "";
 
-      const name = document.getElementById('name').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const phone = document.getElementById('phone').value.trim();
+      const response = await fetch("/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, phone })
+      });
 
-      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.(com|org|net|edu|gov|co|io|me|biz)$/i;
-      const domain = email.split('@')[1]?.toLowerCase() || '';
-      const commonMisspellings = ['gmil.com', 'gail.com', 'gmai.com', 'gnail.com'];
-
-      if (!emailRegex.test(email) || commonMisspellings.includes(domain)) {
-        errorDiv.textContent = 'Please check the email address';
-        return;
-      }
-
-      if (!/^\\d{10}$/.test(phone)) {
-        errorDiv.textContent = 'Please enter a valid 10-digit phone number';
-        return;
-      }
-
-      submitBtn.disabled = true;
-      loadingDiv.style.display = 'block';
-
-      try {
-        const res = await fetch('/send-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone })
-        });
-
-        const result = await res.json();
-        if (result.success) {
-          localStorage.setItem('user', JSON.stringify({ name, email, phone }));
-          window.location.href = '/otp.html';
-        } else {
-          errorDiv.textContent = result.error || 'Something went wrong.';
-          loadingDiv.style.display = 'none';
-        }
-      } catch (error) {
-        errorDiv.textContent = 'Failed to connect to the server. Please try again later.';
-        loadingDiv.style.display = 'none';
-      } finally {
-        submitBtn.disabled = false;
+      const result = await response.json();
+      if (response.ok && result.success) {
+        window.location.href = `otp.html?name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`;
+      } else {
+        errorDiv.textContent = result.error || "Failed to send OTP";
       }
     });
   </script>
