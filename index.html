@@ -2,7 +2,6 @@
 <html>
 <head>
   <title>24/1 Pizza - Enter to Spin!</title>
-  <!-- Preload the wheel page background image -->
   <link rel="preload" href="new images/pepperoni-pizza-closeup.webp" as="image">
   <style>
     body {
@@ -141,16 +140,12 @@
       <button type="submit" id="submit-btn">Spin!</button>
     </form>
     <div id="error" class="error"></div>
-    <div id="loading" class="loading">Loading...</div>
+    <div id="loading" class="loading">Sending OTP to your email...</div>
   </div>
 
   <script>
-    console.log("Validation Script Loaded - Version 5 (2025-04-24) - Display Server Error Messages");
-
     document.getElementById('customer-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      console.log("Form submission initiated");
-
       const submitBtn = document.getElementById('submit-btn');
       const errorDiv = document.getElementById('error');
       const loadingDiv = document.getElementById('loading');
@@ -160,66 +155,39 @@
       const email = document.getElementById('email').value.trim();
       const phone = document.getElementById('phone').value.trim();
 
-      console.log(`Input Values - Name: ${name}, Email: ${email}, Phone: ${phone}`);
-
-      // Email validation regex: Ensures valid email format with specific TLDs
-      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|co|io|me|biz)$/i;
-      console.log(`Validating email: ${email}`);
-      if (!emailRegex.test(email)) {
-        console.log(`Email validation failed for: ${email}`);
-        errorDiv.textContent = 'Please check the email address';
-        return;
-      }
-      console.log(`Email validation passed for: ${email}`);
-
-      // Additional check for common misspellings
-      const domain = email.split('@')[1].toLowerCase();
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.(com|org|net|edu|gov|co|io|me|biz)$/i;
+      const domain = email.split('@')[1]?.toLowerCase() || '';
       const commonMisspellings = ['gmil.com', 'gail.com', 'gmai.com', 'gnail.com'];
-      if (commonMisspellings.includes(domain)) {
-        console.log(`Detected common email domain misspelling: ${domain}`);
+
+      if (!emailRegex.test(email) || commonMisspellings.includes(domain)) {
         errorDiv.textContent = 'Please check the email address';
         return;
       }
 
-      // Phone validation: Ensures 10 digits
-      if (!/^\d{10}$/.test(phone)) {
-        console.log(`Phone validation failed for: ${phone}`);
+      if (!/^\\d{10}$/.test(phone)) {
         errorDiv.textContent = 'Please enter a valid 10-digit phone number';
         return;
       }
-      console.log(`Phone validation passed for: ${phone}`);
 
-      console.log("All validations passed, proceeding with submission");
       submitBtn.disabled = true;
-      loadingDiv.style.display = 'block'; // Show loading indicator
+      loadingDiv.style.display = 'block';
 
       try {
-        console.log("Sending POST request to /submit");
-        const response = await fetch('/submit', {
+        const res = await fetch('/send-otp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone }),
+          body: JSON.stringify({ name, email, phone })
         });
 
-        const result = await response.json(); // Always parse the response body
-
-        if (response.ok && result.success) {
-          console.log("Submission successful, redirecting to wheel.html");
-          const redirectUrl = `wheel.html?name=${encodeURIComponent(name)}`;
-          window.location.href = redirectUrl;
+        const result = await res.json();
+        if (result.success) {
+          localStorage.setItem('user', JSON.stringify({ name, email, phone }));
+          window.location.href = '/otp.html';
         } else {
-          console.log(`Submission failed with status ${response.status}:`, result.error);
-          errorDiv.textContent = result.error === 'Invalid phone number (10 digits required)' 
-            ? 'Please enter a valid 10-digit phone number' 
-            : result.error === 'Details already exist' 
-            ? 'Details already exist' 
-            : result.error === 'Please check the email address' 
-            ? 'Please check the email address' 
-            : result.error; // Display the server's error message directly
+          errorDiv.textContent = result.error || 'Something went wrong.';
           loadingDiv.style.display = 'none';
         }
       } catch (error) {
-        console.log("Submission error:", error.message);
         errorDiv.textContent = 'Failed to connect to the server. Please try again later.';
         loadingDiv.style.display = 'none';
       } finally {
@@ -227,7 +195,5 @@
       }
     });
   </script>
-  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92adca0fedb3bfd8',t:'MTc0MzczODA3OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
-  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93588ee0bc30e14d',t:'MTc0NTUyODcxOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
