@@ -34,7 +34,7 @@ app.post('/send-otp', async (req, res) => {
   const mailOptions = {
     from: '241promotion@gmail.com',
     to: email,
-    subject: 'Your OTP for 24/1 Pizza Spin & Win ðŸŽ‰',
+    subject: 'Your OTP for 24/1 Pizza Spin & Win 🎉',
     html: `<p>Hello ${name},</p><p>Your OTP is: <b>${otp}</b></p><p>Please enter this OTP to verify your email and continue to spin the wheel.</p>`
   };
 
