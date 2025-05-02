@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Verify Your Email</title>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #fff8dc;
+      text-align: center;
+      padding: 60px 20px;
+      color: #333;
+    }
+    h1 {
+      color: #E63946;
+      font-size: 2em;
+      margin-bottom: 20px;
+    }
+    input {
+      font-size: 2em;
+      padding: 10px;
+      width: 120px;
+      text-align: center;
+      border: 2px solid #E63946;
+      border-radius: 8px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px 30px;
+      font-size: 1.2em;
+      background: #E63946;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .error {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Enter the 4-digit code sent to your email</h1>
+  <input type="text" id="otp" maxlength="4" placeholder="____" />
+  <br>
+  <button onclick="verifyOtp()">Verify</button>
+  <div id="error" class="error"></div>
+
+  <script>
+    async function verifyOtp() {
+      const otp = document.getElementById('otp').value.trim();
+      const user = JSON.parse(localStorage.getItem('user'));
+      const errorDiv = document.getElementById('error');
+      errorDiv.textContent = '';
+
+      if (!otp || otp.length !== 4 || !/^\d{4}$/.test(otp)) {
+        errorDiv.textContent = 'Enter a valid 4-digit code.';
+        return;
+      }
+
+      try {
+        const res = await fetch('/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...user, otp })
+        });
+
+        const result = await res.json();
+        if (result.success) {
+          localStorage.removeItem('user');
+          window.location.href = '/wheel.html';
+        } else {
+          errorDiv.textContent = result.error || 'Invalid code. Please try again.';
+        }
+      } catch (err) {
+        errorDiv.textContent = 'Server error. Try again later.';
+      }
+    }
+  </script>
+</body>
+</html>
