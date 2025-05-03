@@ -7,62 +7,6 @@ const { google } = require('googleapis');
 const disk = require('diskusage');
 
 const app = express();
-
-const nodemailer = require('nodemailer');
-
-const otpStore = new Map();
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: '241promotion@gmail.com',
-    pass: 'nczgrushvrpnbwxu'
-  }
-});
-
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-// Route to send email OTP
-app.post('/send-otp', async (req, res) => {
-  const { name, email, phone } = req.body;
-  if (!email || !phone || !name) return res.status(400).json({ error: 'All fields are required' });
-
-  const otp = generateOTP();
-  otpStore.set(email, { otp, name, phone, timestamp: Date.now() });
-
-  const mailOptions = {
-    from: '241promotion@gmail.com',
-    to: email,
-    subject: 'Your OTP for 24/1 Pizza Spin & Win 🎉',
-    html: `<p>Hello ${name},</p><p>Your OTP is: <b>${otp}</b></p><p>Please enter this OTP to verify your email and continue to spin the wheel.</p>`
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error sending OTP email:', err);
-    res.status(500).json({ error: 'Failed to send OTP email' });
-  }
-});
-
-// Route to verify OTP
-app.post('/verify-otp', async (req, res) => {
-  const { name, email, phone, otp } = req.body;
-  const record = otpStore.get(email);
-  if (!record || record.otp !== otp) {
-    return res.status(400).json({ error: 'Invalid or expired OTP' });
-  }
-
-  // Forward to original /submit logic or insert directly into your Google Sheet
-  req.body = { name, email, phone }; // mimic the /submit route input
-  otpStore.delete(email);
-
-  // Call existing submission logic if available or return success
-  res.json({ success: true });
-});
-
 const PORT = process.env.PORT || 10000;
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1l4e6cq0LaFS2IFkJlWKLFJ_CVIEqPqTK';
