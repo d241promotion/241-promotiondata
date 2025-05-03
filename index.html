@@ -76,51 +76,51 @@
   </div>
 
   <script>
-    async function validateAndSendOTP(event) {
-      event.preventDefault();
+  async function validateAndSendOTP(event) {
+    event.preventDefault();
 
-      const name = document.getElementById('name').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const phone = document.getElementById('phone').value.trim();
-      const dob = document.getElementById('dob').value;
-      const errorMsg = document.getElementById('errorMsg');
-      errorMsg.innerText = '';
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const dob = document.getElementById('dob').value;
+    const errorMsg = document.getElementById('errorMsg');
+    errorMsg.innerText = '';
 
-      const emailPattern = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
-      const phonePattern = /^\\d{10}$/;
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phonePattern = /^\d{10}$/;
 
-      if (!name || !email || !phone || !dob) {
-        return errorMsg.innerText = 'All fields are required.';
-      }
-
-      if (!emailPattern.test(email)) {
-        return errorMsg.innerText = 'Invalid email format.';
-      }
-
-      if (!phonePattern.test(phone)) {
-        return errorMsg.innerText = 'Phone number must be 10 digits.';
-      }
-
-      try {
-        const res = await fetch('/send-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone, dob })
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-          sessionStorage.setItem("userData", JSON.stringify({ name, email, phone, dob }));
-          window.location.href = 'otp.html';
-        } else {
-          errorMsg.innerText = data.error || 'Something went wrong.';
-        }
-      } catch (err) {
-        errorMsg.innerText = 'Failed to connect to server.';
-      }
+    if (!name || !email || !phone || !dob) {
+      return errorMsg.innerText = 'All fields are required.';
     }
-  </script>
+
+    if (!emailPattern.test(email)) {
+      return errorMsg.innerText = 'Invalid email format.';
+    }
+
+    if (!phonePattern.test(phone)) {
+      return errorMsg.innerText = 'Phone number must be 10 digits.';
+    }
+
+    try {
+      const res = await fetch('/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, phone, dob })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        sessionStorage.setItem("userData", JSON.stringify({ name, email, phone, dob }));
+        window.location.href = 'otp.html';
+      } else {
+        errorMsg.innerText = data.error || 'Something went wrong.';
+      }
+    } catch (err) {
+      errorMsg.innerText = 'Failed to connect to server.';
+    }
+  }
+</script>
 
 </body>
 </html>
