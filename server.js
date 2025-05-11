@@ -35,6 +35,7 @@ async function initializeExcel() {
     { header: 'Name', key: 'name', width: 20 },
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
+    { header: 'Date of Birth', key: 'dob', width: 15 },
   ];
   console.log('Initialized worksheet columns:', sheet.columns.map(col => ({ header: col.header, key: col.key })));
   return workbook;
@@ -92,8 +93,8 @@ async function validateWorkbook(workbook) {
 
     const headers = sheet.getRow(1).values;
     console.log('Worksheet headers:', headers);
-    const expectedHeaders = ['Name', 'Email', 'Phone'];
-    const actualHeaders = headers.slice(1, 4);
+    const expectedHeaders = ['Name', 'Email', 'Phone', 'Date of Birth'];
+    const actualHeaders = headers.slice(1, 5);
     const headersValid = expectedHeaders.every((header, index) => header === actualHeaders[index]);
     if (!headersValid) {
       throw new Error(`Invalid worksheet headers. Expected ${expectedHeaders}, got ${actualHeaders}`);
@@ -105,9 +106,10 @@ async function validateWorkbook(workbook) {
       const name = row.getCell(1).value;
       const email = row.getCell(2).value;
       const phone = row.getCell(3).value;
-      if (name || email || phone) {
+      const dob = row.getCell(4).value;
+      if (name || email || phone || dob) {
         hasDataRows = true;
-        console.log(`Validated row ${rowNumber}:`, [name, email, phone]);
+        console.log(`Validated row ${rowNumber}:`, [name, email, phone, dob]);
       }
     });
 
@@ -137,10 +139,11 @@ async function extractExistingData(workbook) {
         const name = row.getCell(1).value;
         const email = row.getCell(2).value;
         const phone = row.getCell(3).value;
+        const dob = row.getCell(4).value;
         if (name && email && phone && name.toString().trim() && email.toString().trim() && phone.toString().trim()) {
-          data.push([name, email, phone]);
+          data.push([name, email, phone, dob]);
         } else {
-          console.warn(`Row ${rowNumber} has missing or empty data, skipping:`, [name, email, phone]);
+          console.warn(`Row ${rowNumber} has missing or empty data, skipping:`, [name, email, phone, dob]);
         }
       } catch (error) {
         console.error(`Failed to extract row ${rowNumber}:`, error.message, error.stack);
@@ -163,7 +166,8 @@ async function loadLocalExcel() {
       const name = row.getCell(1).value || '';
       const email = row.getCell(2).value || '';
       const phone = row.getCell(3).value || '';
-      console.log(`LOAD: Cached Row ${rowNumber}:`, [name, email, phone]);
+      const dob = row.getCell(4).value || '';
+      console.log(`LOAD: Cached Row ${rowNumber}:`, [name, email, phone, dob]);
     });
     const isValid = await validateWorkbook(cachedWorkbook);
     if (isValid) {
@@ -332,7 +336,8 @@ async function downloadFromGoogleDrive(forceSync = false) {
             const name = row.getCell(1).value || '';
             const email = row.getCell(2).value || '';
             const phone = row.getCell(3).value || '';
-            console.log('Row ' + rowNumber + ':', [name, email, phone]);
+            const dob = row.getCell(4).value || '';
+            console.log('Row ' + rowNumber + ':', [name, email, phone, dob]);
           } catch (error) {
             console.error(`Failed to log row ${rowNumber}:`, error.message, error.stack);
           }
@@ -352,7 +357,8 @@ async function downloadFromGoogleDrive(forceSync = false) {
         const name = row.getCell(1).value || '';
         const email = row.getCell(2).value || '';
         const phone = row.getCell(3).value || '';
-        console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone]);
+        const dob = row.getCell(4).value || '';
+        console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone, dob]);
       });
     }
 
@@ -373,7 +379,8 @@ async function downloadFromGoogleDrive(forceSync = false) {
       const name = row.getCell(1).value || '';
       const email = row.getCell(2).value || '';
       const phone = row.getCell(3).value || '';
-      console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone]);
+      const dob = row.getCell(4).value || '';
+      console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone, dob]);
     });
 
     // Reset localChangesPending on error recovery
@@ -539,7 +546,8 @@ async function initializeFromGoogleDrive() {
     const name = row.getCell(1).value || '';
     const email = row.getCell(2).value || '';
     const phone = row.getCell(3).value || '';
-    console.log(`INIT: Row ${rowNumber}:`, [name, email, phone]);
+    const dob = row.getCell(4).value || '';
+    console.log(`INIT: Row ${rowNumber}:`, [name, email, phone, dob]);
   });
   cachedWorkbook = workbook;
 }
@@ -560,9 +568,9 @@ app.post('/submit', async (req, res) => {
   const submitStartTime = Date.now();
   console.log(`SUBMIT: Received submission at ${new Date(submitStartTime).toISOString()}:`, req.body);
 
-  const { name, email, phone } = req.body;
+  const { name, email, phone, dob } = req.body;
 
-  if (!name || !email || !phone) {
+  if (!name || !email || !phone || !dob) {
     console.log('SUBMIT: Validation failed: Missing required fields');
     return res.status(400).json({ success: false, error: 'Missing required fields' });
   }
@@ -585,6 +593,17 @@ app.post('/submit', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Invalid phone number (10 digits required)' });
   }
 
+  const dobDate = new Date(dob);
+  const today = new Date();
+  if (isNaN(dobDate.getTime())) {
+    console.log('SUBMIT: Validation failed: Invalid date of birth');
+    return res.status(400).json({ success: false, error: 'Invalid date of birth' });
+  }
+  if (dobDate > today) {
+    console.log('SUBMIT: Validation failed: Date of birth is in the future');
+    return res.status(400).json({ success: false, error: 'Date of birth cannot be in the future' });
+  }
+
   try {
     let submissionResult;
     fileLockPromise = fileLockPromise.then(async () => {
@@ -603,7 +622,8 @@ app.post('/submit', async (req, res) => {
             const name = row.getCell(1).value || '';
             const email = row.getCell(2).value || '';
             const phone = row.getCell(3).value || '';
-            console.log(`SUBMIT: Row ${rowNumber}:`, [name, email, phone]);
+            const dob = row.getCell(4).value || '';
+            console.log(`SUBMIT: Row ${rowNumber}:`, [name, email, phone, dob]);
           });
         } catch (loadError) {
           console.error('SUBMIT: Failed to load Excel file, forcing recreation:', loadError.message, loadError.stack);
@@ -645,9 +665,10 @@ app.post('/submit', async (req, res) => {
           const name = row.getCell(1).value || '';
           const email = row.getCell(2).value || '';
           const phone = row.getCell(3).value || '';
+          const dob = row.getCell(4).value || '';
           if (name && email && phone) {
-            existingRows.push([name, email, phone]);
-            console.log(`SUBMIT: Existing Row ${rowNumber}:`, [name, email, phone]);
+            existingRows.push([name, email, phone, dob]);
+            console.log(`SUBMIT: Existing Row ${rowNumber}:`, [name, email, phone, dob]);
           }
         });
 
@@ -685,8 +706,8 @@ app.post('/submit', async (req, res) => {
           console.log('SUBMIT: No duplicates found, proceeding to add new row.');
         }
 
-        existingRows.push([name, email, phone]);
-        console.log('SUBMIT: Added new row to list:', [name, email, phone]);
+        existingRows.push([name, email, phone, dob]);
+        console.log('SUBMIT: Added new row to list:', [name, email, phone, dob]);
 
         console.log('SUBMIT: Recreating worksheet with contiguous rows...');
         workbook.removeWorksheet('Customers');
@@ -695,6 +716,7 @@ app.post('/submit', async (req, res) => {
           { header: 'Name', key: 'name', width: 20 },
           { header: 'Email', key: 'email', width: 30 },
           { header: 'Phone', key: 'phone', width: 15 },
+          { header: 'Date of Birth', key: 'dob', width: 15 },
         ];
 
         existingRows.forEach((rowValues, index) => {
@@ -813,7 +835,8 @@ app.post('/delete', async (req, res) => {
             const name = row.getCell(1).value || '';
             const email = row.getCell(2).value || '';
             const phone = row.getCell(3).value || '';
-            console.log(`DELETE: Row ${rowNumber}:`, [name, email, phone]);
+            const dob = row.getCell(4).value || '';
+            console.log(`DELETE: Row ${rowNumber}:`, [name, email, phone, dob]);
           });
         } catch (loadError) {
           console.error('DELETE: Failed to load Excel file for deletion, forcing recreation:', loadError.message, loadError.stack);
@@ -847,10 +870,10 @@ app.post('/delete', async (req, res) => {
           const phoneMatch = normalizedPhone && normalizedExistingPhone === normalizedPhone;
 
           if (emailMatch || phoneMatch) {
-            console.log(`DELETE: Found matching row ${rowNumber} to delete:`, [row.getCell(1).value, normalizedExistingEmail, normalizedExistingPhone]);
+            console.log(`DELETE: Found matching row ${rowNumber} to delete:`, [row.getCell(1).value, normalizedExistingEmail, normalizedExistingPhone, row.getCell(4).value]);
             rowFound = true;
           } else {
-            rowsToKeep.push([row.getCell(1).value, row.getCell(2).value, row.getCell(3).value]);
+            rowsToKeep.push([row.getCell(1).value, row.getCell(2).value, row.getCell(3).value, row.getCell(4).value]);
           }
         });
 
@@ -868,6 +891,7 @@ app.post('/delete', async (req, res) => {
           { header: 'Name', key: 'name', width: 20 },
           { header: 'Email', key: 'email', width: 30 },
           { header: 'Phone', key: 'phone', width: 15 },
+          { header: 'Date of Birth', key: 'dob', width: 15 },
         ];
 
         rowsToKeep.forEach((rowValues, index) => {
@@ -968,7 +992,8 @@ app.get('/download', async (req, res) => {
           const name = row.getCell(1).value || '';
           const email = row.getCell(2).value || '';
           const phone = row.getCell(3).value || '';
-          console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone]);
+          const dob = row.getCell(4).value || '';
+          console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone, dob]);
         });
 
         console.log('DOWNLOAD: Sending Excel file to client...');
