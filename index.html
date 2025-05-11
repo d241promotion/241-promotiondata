@@ -89,6 +89,12 @@
     input::placeholder {
       color: #999;
     }
+    input.valid {
+      border-color: #2A9D8F;
+    }
+    input.invalid {
+      border-color: #E63946;
+    }
     button {
       background: #E63946;
       color: white;
@@ -111,12 +117,42 @@
       color: #E63946;
       font-weight: bold;
       margin-top: 10px;
+      background: rgba(230, 57, 70, 0.1);
+      padding: 10px;
+      border-radius: 8px;
     }
     .loading {
       display: none;
       font-size: 1.2em;
       color: #E63946;
       margin-top: 10px;
+    }
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #E63946;
+      border-top: 3px solid transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .input-container {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .error-message {
+      color: #E63946;
+      font-size: 0.9em;
+      position: absolute;
+      bottom: -20px;
+      left: 0;
+      width: 100%;
+      text-align: left;
+      padding-left: 15px;
     }
     @media (max-width: 600px) {
       .hero { height: 200px; }
@@ -134,74 +170,154 @@
   <div class="container">
     <h1>Enter to Spin!</h1>
     <p>Fill in your details for a chance to win!</p>
-    <form id="customer-form">
-      <input type="text" id="name" name="name" placeholder="Your Name" required><br>
-      <input type="email" id="email" name="email" placeholder="Email" required><br>
-      <input type="tel" id="phone" name="phone" placeholder="Phone (10 digits)" required><br>
-      <button type="submit" id="submit-btn">Spin!</button>
+    <form id="customer-form" aria-label="Customer entry form for spin-to-win promotion">
+      <div class="input-container">
+        <input type="text" id="name" name="name" placeholder="Your Name" required aria-describedby="name-error">
+        <div id="name-error" class="error-message"></div>
+      </div>
+      <div class="input-container">
+        <input type="email" id="email" name="email" placeholder="Email" required aria-describedby="email-error">
+        <div id="email-error" class="error-message"></div>
+      </div>
+      <div class="input-container">
+        <input type="tel" id="phone" name="phone" placeholder="Phone (10 digits)" required aria-describedby="phone-error">
+        <div id="phone-error" class="error-message"></div>
+      </div>
+      <div class="input-container">
+        <input type="date" id="dob" name="dob" required aria-describedby="dob-error">
+        <div id="dob-error" class="error-message"></div>
+      </div>
+      <button type="submit" id="submit-btn" aria-label="Submit details to spin the wheel">Spin!</button>
     </form>
     <div id="error" class="error"></div>
-    <div id="loading" class="loading">Loading...</div>
+    <div id="loading" class="loading"><span class="spinner"></span>Loading...</div>
   </div>
 
   <script>
-    console.log("Validation Script Loaded - Version 5 (2025-04-24) - Display Server Error Messages");
+    console.log("Validation Script Loaded - Version 7 (2025-05-11) - Added Date of Birth");
 
-    document.getElementById('customer-form').addEventListener('submit', async (e) => {
+    const form = document.getElementById('customer-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorDiv = document.getElementById('error');
+    const loadingDiv = document.getElementById('loading');
+    const inputs = {
+      name: document.getElementById('name'),
+      email: document.getElementById('email'),
+      phone: document.getElementById('phone'),
+      dob: document.getElementById('dob'),
+    };
+    const errorMessages = {
+      name: document.getElementById('name-error'),
+      email: document.getElementById('email-error'),
+      phone: document.getElementById('phone-error'),
+      dob: document.getElementById('dob-error'),
+    };
+
+    // Validation functions
+    const validateName = (value) => {
+      if (!value.trim()) {
+        return 'Please enter your name';
+      }
+      return '';
+    };
+
+    const validateEmail = (value) => {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|co|io|me|biz)$/i;
+      if (!value.trim()) {
+        return 'Please enter an email address';
+      }
+      if (!emailRegex.test(value)) {
+        return 'Please enter a valid email address';
+      }
+      const domain = value.split('@')[1].toLowerCase();
+      const commonMisspellings = ['gmil.com', 'gail.com', 'gmai.com', 'gnail.com'];
+      if (commonMisspellings.includes(domain)) {
+        return 'Please check the email domain';
+      }
+      return '';
+    };
+
+    const validatePhone = (value) => {
+      if (!value.trim()) {
+        return 'Please enter a phone number';
+      }
+      if (!/^\d{10}$/.test(value)) {
+        return 'Please enter a valid 10-digit phone number';
+      }
+      return '';
+    };
+
+    const validateDob = (value) => {
+      if (!value) {
+        return 'Please enter your date of birth';
+      }
+      const dob = new Date(value);
+      const today = new Date();
+      const minAge = 19;
+      const minDate = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
+      if (isNaN(dob.getTime())) {
+        return 'Please enter a valid date';
+      }
+      if (dob > minDate) {
+        return `You must be at least ${minAge} years old`;
+      }
+      if (dob > today) {
+        return 'Date of birth cannot be in the future';
+      }
+      return '';
+    };
+
+    // Real-time validation
+    Object.keys(inputs).forEach((key) => {
+      inputs[key].addEventListener('input', () => {
+        const error = key === 'name' ? validateName(inputs[key].value)
+          : key === 'email' ? validateEmail(inputs[key].value)
+          : key === 'phone' ? validatePhone(inputs[key].value)
+          : validateDob(inputs[key].value);
+        errorMessages[key].textContent = error;
+        inputs[key].classList.toggle('valid', !error);
+        inputs[key].classList.toggle('invalid', !!error);
+        updateSubmitButton();
+      });
+    });
+
+    // Enable/disable submit button based on validation
+    function updateSubmitButton() {
+      const allValid = Object.keys(inputs).every((key) => {
+        const error = key === 'name' ? validateName(inputs[key].value)
+          : key === 'email' ? validateEmail(inputs[key].value)
+          : key === 'phone' ? validatePhone(inputs[key].value)
+          : validateDob(inputs[key].value);
+        return !error;
+      });
+      submitBtn.disabled = !allValid;
+    }
+
+    // Form submission
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       console.log("Form submission initiated");
 
-      const submitBtn = document.getElementById('submit-btn');
-      const errorDiv = document.getElementById('error');
-      const loadingDiv = document.getElementById('loading');
       errorDiv.textContent = '';
-
-      const name = document.getElementById('name').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const phone = document.getElementById('phone').value.trim();
-
-      console.log(`Input Values - Name: ${name}, Email: ${email}, Phone: ${phone}`);
-
-      // Email validation regex: Ensures valid email format with specific TLDs
-      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|co|io|me|biz)$/i;
-      console.log(`Validating email: ${email}`);
-      if (!emailRegex.test(email)) {
-        console.log(`Email validation failed for: ${email}`);
-        errorDiv.textContent = 'Please check the email address';
-        return;
-      }
-      console.log(`Email validation passed for: ${email}`);
-
-      // Additional check for common misspellings
-      const domain = email.split('@')[1].toLowerCase();
-      const commonMisspellings = ['gmil.com', 'gail.com', 'gmai.com', 'gnail.com'];
-      if (commonMisspellings.includes(domain)) {
-        console.log(`Detected common email domain misspelling: ${domain}`);
-        errorDiv.textContent = 'Please check the email address';
-        return;
-      }
-
-      // Phone validation: Ensures 10 digits
-      if (!/^\d{10}$/.test(phone)) {
-        console.log(`Phone validation failed for: ${phone}`);
-        errorDiv.textContent = 'Please enter a valid 10-digit phone number';
-        return;
-      }
-      console.log(`Phone validation passed for: ${phone}`);
-
-      console.log("All validations passed, proceeding with submission");
       submitBtn.disabled = true;
-      loadingDiv.style.display = 'block'; // Show loading indicator
+      loadingDiv.style.display = 'flex';
+
+      const name = inputs.name.value.trim();
+      const email = inputs.email.value.trim();
+      const phone = inputs.phone.value.trim();
+      const dob = inputs.dob.value;
+
+      console.log(`Input Values - Name: ${name}, Email: ${email}, Phone: ${phone}, DOB: ${dob}`);
 
       try {
         console.log("Sending POST request to /submit");
         const response = await fetch('/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone }),
+          body: JSON.stringify({ name, email, phone, dob }),
         });
 
-        const result = await response.json(); // Always parse the response body
+        const result = await response.json();
 
         if (response.ok && result.success) {
           console.log("Submission successful, redirecting to wheel.html");
@@ -209,25 +325,17 @@
           window.location.href = redirectUrl;
         } else {
           console.log(`Submission failed with status ${response.status}:`, result.error);
-          errorDiv.textContent = result.error === 'Invalid phone number (10 digits required)' 
-            ? 'Please enter a valid 10-digit phone number' 
-            : result.error === 'Details already exist' 
-            ? 'Details already exist' 
-            : result.error === 'Please check the email address' 
-            ? 'Please check the email address' 
-            : result.error; // Display the server's error message directly
+          errorDiv.textContent = result.error || 'An error occurred. Please try again.';
           loadingDiv.style.display = 'none';
+          submitBtn.disabled = false;
         }
       } catch (error) {
         console.log("Submission error:", error.message);
         errorDiv.textContent = 'Failed to connect to the server. Please try again later.';
         loadingDiv.style.display = 'none';
-      } finally {
         submitBtn.disabled = false;
       }
     });
   </script>
-  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92adca0fedb3bfd8',t:'MTc0MzczODA3OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
-  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93588ee0bc30e14d',t:'MTc0NTUyODcxOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
