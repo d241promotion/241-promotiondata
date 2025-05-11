@@ -194,7 +194,7 @@
   </div>
 
   <script>
-    console.log("Validation Script Loaded - Version 7 (2025-05-11) - Added Date of Birth");
+    console.log("Validation Script Loaded - Version 8 (2025-05-11) - Removed Age Restriction");
 
     const form = document.getElementById('customer-form');
     const submitBtn = document.getElementById('submit-btn');
@@ -253,13 +253,8 @@
       }
       const dob = new Date(value);
       const today = new Date();
-      const minAge = 19;
-      const minDate = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
       if (isNaN(dob.getTime())) {
         return 'Please enter a valid date';
-      }
-      if (dob > minDate) {
-        return `You must be at least ${minAge} years old`;
       }
       if (dob > today) {
         return 'Date of birth cannot be in the future';
