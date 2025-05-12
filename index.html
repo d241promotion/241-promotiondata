@@ -73,7 +73,7 @@
       font-size: 1.2em;
       color: #666;
     }
-    input {
+    input, select {
       padding: 15px;
       margin: 15px 0;
       width: 90%;
@@ -82,17 +82,17 @@
       font-size: 1.1em;
       transition: border-color 0.3s;
     }
-    input:focus {
+    input:focus, select:focus {
       border-color: #F4A261;
       outline: none;
     }
     input::placeholder {
       color: #999;
     }
-    input.valid {
+    input.valid, select.valid {
       border-color: #2A9D8F;
     }
-    input.invalid {
+    input.invalid, select.invalid {
       border-color: #E63946;
     }
     button {
@@ -158,7 +158,7 @@
       .hero { height: 200px; }
       .hero img.logo { width: 150px; }
       .container { padding: 15px; }
-      input { width: 100%; }
+      input, select { width: 100%; }
     }
   </style>
 </head>
@@ -184,7 +184,22 @@
         <div id="phone-error" class="error-message"></div>
       </div>
       <div class="input-container">
-        <input type="date" id="dob" name="dob" required aria-describedby="dob-error">
+        <input type="text" id="dob" name="dob" placeholder="YYYY-MM-DD (e.g., 1990-05-15)" required aria-describedby="dob-error">
+        <select id="month-select" style="display: none;">
+          <option value="" disabled selected>Select Month</option>
+          <option value="01">January</option>
+          <option value="02">February</option>
+          <option value="03">March</option>
+          <option value="04">April</option>
+          <option value="05">May</option>
+          <option value="06">June</option>
+          <option value="07">July</option>
+          <option value="08">August</option>
+          <option value="09">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
         <div id="dob-error" class="error-message"></div>
       </div>
       <button type="submit" id="submit-btn" aria-label="Submit details to spin the wheel">Spin!</button>
@@ -194,7 +209,7 @@
   </div>
 
   <script>
-    console.log("Validation Script Loaded - Version 8 (2025-05-11) - Removed Age Restriction");
+    console.log("Validation Script Loaded - Version 9 (2025-05-11) - Single DOB Input with Auto-Hyphens");
 
     const form = document.getElementById('customer-form');
     const submitBtn = document.getElementById('submit-btn');
@@ -212,6 +227,51 @@
       phone: document.getElementById('phone-error'),
       dob: document.getElementById('dob-error'),
     };
+    const monthSelect = document.getElementById('month-select');
+
+    // Auto-insert hyphens in DOB input
+    inputs.dob.addEventListener('input', function (e) {
+      let value = e.target.value.replace(/[^0-9]/g, ''); // Remove non-numeric characters
+      let cursorPosition = e.target.selectionStart;
+
+      // Format with hyphens
+      if (value.length > 4) {
+        const year = value.substr(0, 4);
+        const rest = value.substr(4);
+        value = year + '-' + rest;
+        cursorPosition++; // Move cursor past the first hyphen
+      }
+      if (value.length > 7) {
+        const parts = value.split('-');
+        const month = parts[1].substr(0, 2);
+        const day = parts[1].substr(2, 2);
+        value = parts[0] + '-' + month + '-' + day;
+        if (cursorPosition > 7) cursorPosition++; // Move cursor past the second hyphen
+      }
+
+      e.target.value = value;
+
+      // Restore cursor position
+      e.target.setSelectionRange(cursorPosition, cursorPosition);
+
+      // Validate after formatting
+      validateDob(value);
+      updateSubmitButton();
+    });
+
+    // Populate DOB input with month selection
+    monthSelect.addEventListener('change', () => {
+      const month = monthSelect.value;
+      const currentDob = inputs.dob.value.trim();
+      const [year, , day] = currentDob.split('-') || ['', '', ''];
+      if (month && year && day) {
+        inputs.dob.value = `${year}-${month}-${day}`;
+      } else if (month) {
+        inputs.dob.value = `2023-${month}-01`; // Default year and day if not set
+      }
+      validateDob(inputs.dob.value);
+      updateSubmitButton();
+    });
 
     // Validation functions
     const validateName = (value) => {
@@ -248,16 +308,21 @@
     };
 
     const validateDob = (value) => {
-      if (!value) {
-        return 'Please enter your date of birth';
+      if (!value.trim()) {
+        return 'Please enter a date';
       }
-      const dob = new Date(value);
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(value)) {
+        return 'Please enter date in YYYY-MM-DD format';
+      }
+      const [year, month, day] = value.split('-').map(Number);
+      const dob = new Date(year, month - 1, day);
       const today = new Date();
-      if (isNaN(dob.getTime())) {
-        return 'Please enter a valid date';
-      }
       if (dob > today) {
-        return 'Date of birth cannot be in the future';
+        return 'Date cannot be in the future';
+      }
+      if (dob.getFullYear() !== year || dob.getMonth() + 1 !== month || dob.getDate() !== day) {
+        return 'Please enter a valid date';
       }
       return '';
     };
@@ -265,10 +330,17 @@
     // Real-time validation
     Object.keys(inputs).forEach((key) => {
       inputs[key].addEventListener('input', () => {
-        const error = key === 'name' ? validateName(inputs[key].value)
-          : key === 'email' ? validateEmail(inputs[key].value)
-          : key === 'phone' ? validatePhone(inputs[key].value)
-          : validateDob(inputs[key].value);
+        let error = '';
+        if (key === 'name') {
+          error = validateName(inputs[key].value);
+        } else if (key === 'email') {
+          error = validateEmail(inputs[key].value);
+        } else if (key === 'phone') {
+          error = validatePhone(inputs[key].value);
+        } else if (key === 'dob') {
+          error = validateDob(inputs[key].value);
+        }
+
         errorMessages[key].textContent = error;
         inputs[key].classList.toggle('valid', !error);
         inputs[key].classList.toggle('invalid', !!error);
@@ -279,10 +351,16 @@
     // Enable/disable submit button based on validation
     function updateSubmitButton() {
       const allValid = Object.keys(inputs).every((key) => {
-        const error = key === 'name' ? validateName(inputs[key].value)
-          : key === 'email' ? validateEmail(inputs[key].value)
-          : key === 'phone' ? validatePhone(inputs[key].value)
-          : validateDob(inputs[key].value);
+        let error = '';
+        if (key === 'name') {
+          error = validateName(inputs[key].value);
+        } else if (key === 'email') {
+          error = validateEmail(inputs[key].value);
+        } else if (key === 'phone') {
+          error = validatePhone(inputs[key].value);
+        } else if (key === 'dob') {
+          error = validateDob(inputs[key].value);
+        }
         return !error;
       });
       submitBtn.disabled = !allValid;
@@ -300,7 +378,7 @@
       const name = inputs.name.value.trim();
       const email = inputs.email.value.trim();
       const phone = inputs.phone.value.trim();
-      const dob = inputs.dob.value;
+      const dob = inputs.dob.value.trim();
 
       console.log(`Input Values - Name: ${name}, Email: ${email}, Phone: ${phone}, DOB: ${dob}`);
 
@@ -333,4 +411,4 @@
     });
   </script>
 </body>
-</html>
+</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
