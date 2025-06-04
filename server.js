@@ -611,6 +611,9 @@ app.post('/submit', async (req, res) => {
         let workbook;
         let sheet;
 
+        console.log('SUBMIT: Syncing with Google Drive before duplicate check...');
+        await downloadFromGoogleDrive(); // Ensure latest data before duplicate check
+
         console.log('SUBMIT: Loading local Excel file...');
         try {
           workbook = await loadLocalExcel();
