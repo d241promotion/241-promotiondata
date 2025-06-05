@@ -30,23 +30,14 @@ app.use(express.static(__dirname));
 // Initialize the Excel workbook
 async function initializeExcel() {
   const workbook = new ExcelJS.Workbook();
-  const customerSheet = workbook.addWorksheet('Customers');
-  customerSheet.columns = [
+  const sheet = workbook.addWorksheet('Customers');
+  sheet.columns = [
     { header: 'Name', key: 'name', width: 20 },
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
     { header: 'Date of Birth', key: 'dob', width: 15 },
   ];
-  console.log('Initialized Customers worksheet columns:', customerSheet.columns.map(col => ({ header: col.header, key: col.key })));
-
-  const feedbackSheet = workbook.addWorksheet('Feedback');
-  feedbackSheet.columns = [
-    { header: 'Name', key: 'name', width: 20 },
-    { header: 'Review', key: 'review', width: 50 },
-    { header: 'Timestamp', key: 'timestamp', width: 20 },
-  ];
-  console.log('Initialized Feedback worksheet columns:', feedbackSheet.columns.map(col => ({ header: col.header, key: col.key })));
-
+  console.log('Initialized worksheet columns:', sheet.columns.map(col => ({ header: col.header, key: col.key })));
   return workbook;
 }
 
@@ -95,64 +86,35 @@ async function logFileStats(filePath, label) {
 // Validate that the workbook is readable
 async function validateWorkbook(workbook) {
   try {
-    const customerSheet = workbook.getWorksheet('Customers');
-    if (!customerSheet) {
+    const sheet = workbook.getWorksheet('Customers');
+    if (!sheet) {
       throw new Error('Customers worksheet not found');
     }
 
-    const customerHeaders = customerSheet.getRow(1).values;
-    console.log('Customers worksheet headers:', customerHeaders);
-    const expectedCustomerHeaders = ['Name', 'Email', 'Phone', 'Date of Birth'];
-    const actualCustomerHeaders = customerHeaders.slice(1, 5);
-    const customerHeadersValid = expectedCustomerHeaders.every((header, index) => header === actualCustomerHeaders[index]);
-    if (!customerHeadersValid) {
-      throw new Error(`Invalid Customers worksheet headers. Expected ${expectedCustomerHeaders}, got ${actualCustomerHeaders}`);
+    const headers = sheet.getRow(1).values;
+    console.log('Worksheet headers:', headers);
+    const expectedHeaders = ['Name', 'Email', 'Phone', 'Date of Birth'];
+    const actualHeaders = headers.slice(1, 5);
+    const headersValid = expectedHeaders.every((header, index) => header === actualHeaders[index]);
+    if (!headersValid) {
+      throw new Error(`Invalid worksheet headers. Expected ${expectedHeaders}, got ${actualHeaders}`);
     }
 
-    const feedbackSheet = workbook.getWorksheet('Feedback');
-    if (!feedbackSheet) {
-      throw new Error('Feedback worksheet not found');
-    }
-
-    const feedbackHeaders = feedbackSheet.getRow(1).values;
-    console.log('Feedback worksheet headers:', feedbackHeaders);
-    const expectedFeedbackHeaders = ['Name', 'Review', 'Timestamp'];
-    const actualFeedbackHeaders = feedbackHeaders.slice(1, 4);
-    const feedbackHeadersValid = expectedFeedbackHeaders.every((header, index) => header === actualFeedbackHeaders[index]);
-    if (!feedbackHeadersValid) {
-      throw new Error(`Invalid Feedback worksheet headers. Expected ${expectedFeedbackHeaders}, got ${actualFeedbackHeaders}`);
-    }
-
-    let hasCustomerDataRows = false;
-    customerSheet.eachRow((row, rowNumber) => {
+    let hasDataRows = false;
+    sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return;
       const name = row.getCell(1).value;
       const email = row.getCell(2).value;
       const phone = row.getCell(3).value;
       const dob = row.getCell(4).value;
       if (name || email || phone || dob) {
-        hasCustomerDataRows = true;
-        console.log(`Validated Customers row ${rowNumber}:`, [name, email, phone, dob]);
+        hasDataRows = true;
+        console.log(`Validated row ${rowNumber}:`, [name, email, phone, dob]);
       }
     });
 
-    let hasFeedbackDataRows = false;
-    feedbackSheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-      const name = row.getCell(1).value;
-      const review = row.getCell(2).value;
-      const timestamp = row.getCell(3).value;
-      if (name || review || timestamp) {
-        hasFeedbackDataRows = true;
-        console.log(`Validated Feedback row ${rowNumber}:`, [name, review, timestamp]);
-      }
-    });
-
-    if (!hasCustomerDataRows) {
-      console.log('Customers worksheet has no data rows, but header is valid');
-    }
-    if (!hasFeedbackDataRows) {
-      console.log('Feedback worksheet has no data rows, but header is valid');
+    if (!hasDataRows) {
+      console.log('Workbook has no data rows, but header is valid');
     }
     return true;
   } catch (error) {
@@ -161,7 +123,7 @@ async function validateWorkbook(workbook) {
   }
 }
 
-// Extract existing customer data from the workbook
+// Extract existing data from the workbook
 async function extractExistingData(workbook) {
   const data = [];
   try {
@@ -181,47 +143,15 @@ async function extractExistingData(workbook) {
         if (name && email && phone && name.toString().trim() && email.toString().trim() && phone.toString().trim()) {
           data.push([name, email, phone, dob]);
         } else {
-          console.warn(`Customers row ${rowNumber} has missing or empty data, skipping:`, [name, email, phone, dob]);
+          console.warn(`Row ${rowNumber} has missing or empty data, skipping:`, [name, email, phone, dob]);
         }
       } catch (error) {
-        console.error(`Failed to extract Customers row ${rowNumber}:`, error.message, error.stack);
+        console.error(`Failed to extract row ${rowNumber}:`, error.message, error.stack);
       }
     });
-    console.log('Extracted existing Customers data:', data);
+    console.log('Extracted existing data:', data);
   } catch (error) {
-    console.error('Failed to extract existing Customers data:', error.message, error.stack);
-  }
-  return data;
-}
-
-// Extract existing feedback data from the workbook
-async function extractExistingFeedbackData(workbook) {
-  const data = [];
-  try {
-    const sheet = workbook.getWorksheet('Feedback');
-    if (!sheet) {
-      console.log('No Feedback worksheet found for data extraction');
-      return data;
-    }
-
-    sheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-      try {
-        const name = row.getCell(1).value;
-        const review = row.getCell(2).value;
-        const timestamp = row.getCell(3).value;
-        if (name && review && name.toString().trim() && review.toString().trim()) {
-          data.push([name, review, timestamp]);
-        } else {
-          console.warn(`Feedback row ${rowNumber} has missing or empty data, skipping:`, [name, review, timestamp]);
-        }
-      } catch (error) {
-        console.error(`Failed to extract Feedback row ${rowNumber}:`, error.message, error.stack);
-      }
-    });
-    console.log('Extracted existing Feedback data:', data);
-  } catch (error) {
-    console.error('Failed to extract existing Feedback data:', error.message, error.stack);
+    console.error('Failed to extract existing data:', error.message, error.stack);
   }
   return data;
 }
@@ -231,20 +161,13 @@ async function loadLocalExcel() {
   if (cachedWorkbook) {
     console.log('LOAD: Using cached workbook');
     console.log('LOAD: Cached workbook contents:');
-    const customerSheet = cachedWorkbook.getWorksheet('Customers');
-    customerSheet.eachRow((row, rowNumber) => {
+    const sheet = cachedWorkbook.getWorksheet('Customers');
+    sheet.eachRow((row, rowNumber) => {
       const name = row.getCell(1).value || '';
       const email = row.getCell(2).value || '';
       const phone = row.getCell(3).value || '';
       const dob = row.getCell(4).value || '';
-      console.log(`LOAD: Customers Row ${rowNumber}:`, [name, email, phone, dob]);
-    });
-    const feedbackSheet = cachedWorkbook.getWorksheet('Feedback');
-    feedbackSheet.eachRow((row, rowNumber) => {
-      const name = row.getCell(1).value || '';
-      const review = row.getCell(2).value || '';
-      const timestamp = row.getCell(3).value || '';
-      console.log(`LOAD: Feedback Row ${rowNumber}:`, [name, review, timestamp]);
+      console.log(`LOAD: Cached Row ${rowNumber}:`, [name, email, phone, dob]);
     });
     const isValid = await validateWorkbook(cachedWorkbook);
     if (isValid) {
@@ -258,8 +181,7 @@ async function loadLocalExcel() {
   }
 
   let workbook;
-  let existingCustomerData = [];
-  let existingFeedbackData = [];
+  let existingData = [];
   try {
     const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
     if (!fileExists) {
@@ -278,23 +200,14 @@ async function loadLocalExcel() {
     const isValid = await validateWorkbook(workbook);
     if (!isValid) {
       console.log('Workbook validation failed, extracting data before recreation...');
-      existingCustomerData = await extractExistingData(workbook);
-      existingFeedbackData = await extractExistingFeedbackData(workbook);
+      existingData = await extractExistingData(workbook);
       workbook = await initializeExcel();
-      const customerSheet = workbook.getWorksheet('Customers');
-      if (existingCustomerData.length > 0) {
-        existingCustomerData.forEach(rowData => {
-          const newRow = customerSheet.addRow(rowData);
+      const sheet = workbook.getWorksheet('Customers');
+      if (existingData.length > 0) {
+        existingData.forEach(rowData => {
+          const newRow = sheet.addRow(rowData);
           newRow.commit();
-          console.log('Re-added existing Customers row during load:', rowData);
-        });
-      }
-      const feedbackSheet = workbook.getWorksheet('Feedback');
-      if (existingFeedbackData.length > 0) {
-        existingFeedbackData.forEach(rowData => {
-          const newRow = feedbackSheet.addRow(rowData);
-          newRow.commit();
-          console.log('Re-added existing Feedback row during load:', rowData);
+          console.log('Re-added existing row during load:', rowData);
         });
       }
       await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE, true);
@@ -331,12 +244,11 @@ async function loadLocalExcel() {
 
         const verifyWorkbook = new ExcelJS.Workbook();
         await verifyWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-        const customerSheet = verifyWorkbook.getWorksheet('Customers');
-        const feedbackSheet = verifyWorkbook.getWorksheet('Feedback');
-        if (!customerSheet || !feedbackSheet) {
-          throw new Error('Customers or Feedback worksheet not found in newly created file');
+        const sheet = verifyWorkbook.getWorksheet('Customers');
+        if (!sheet) {
+          throw new Error('Customers worksheet not found in newly created file');
         }
-        console.log('Verified: New Excel file contains Customers and Feedback worksheets');
+        console.log('Verified: New Excel file contains Customers worksheet');
         fileCreated = true;
       } catch (writeError) {
         writeAttempts++;
@@ -394,23 +306,14 @@ async function downloadFromGoogleDrive(forceSync = false) {
       const isValid = await validateWorkbook(workbook);
       if (!isValid) {
         console.log('Downloaded file from Google Drive is corrupted, extracting data before recreation...');
-        const existingCustomerData = await extractExistingData(workbook);
-        const existingFeedbackData = await extractExistingFeedbackData(workbook);
+        const existingData = await extractExistingData(workbook);
         const newWorkbook = await initializeExcel();
-        const customerSheet = newWorkbook.getWorksheet('Customers');
-        const feedbackSheet = newWorkbook.getWorksheet('Feedback');
-        if (existingCustomerData.length > 0) {
-          existingCustomerData.forEach(rowData => {
-            const newRow = customerSheet.addRow(rowData);
+        const sheet = newWorkbook.getWorksheet('Customers');
+        if (existingData.length > 0) {
+          existingData.forEach(rowData => {
+            const newRow = sheet.addRow(rowData);
             newRow.commit();
-            console.log('Re-added existing Customers row after download:', rowData);
-          });
-        }
-        if (existingFeedbackData.length > 0) {
-          existingFeedbackData.forEach(rowData => {
-            const newRow = feedbackSheet.addRow(rowData);
-            newRow.commit();
-            console.log('Re-added existing Feedback row after download:', rowData);
+            console.log('Re-added existing row after download:', rowData);
           });
         }
         await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE, true);
@@ -422,10 +325,10 @@ async function downloadFromGoogleDrive(forceSync = false) {
         cachedWorkbook = workbook;
       }
 
-      const customerSheet = cachedWorkbook.getWorksheet('Customers');
-      console.log('Customers sheet contents after sync:');
-      console.log('Column keys:', customerSheet.columns.map(col => col.key));
-      customerSheet.eachRow((row, rowNumber) => {
+      const sheet = cachedWorkbook.getWorksheet('Customers');
+      console.log('File contents after sync:');
+      console.log('Column keys:', sheet.columns.map(col => col.key));
+      sheet.eachRow((row, rowNumber) => {
         if (rowNumber === 1) {
           console.log('Headers:', row.values);
         } else {
@@ -436,25 +339,7 @@ async function downloadFromGoogleDrive(forceSync = false) {
             const dob = row.getCell(4).value || '';
             console.log('Row ' + rowNumber + ':', [name, email, phone, dob]);
           } catch (error) {
-            console.error(`Failed to log Customers row ${rowNumber}:`, error.message, error.stack);
-          }
-        }
-      });
-
-      const feedbackSheet = cachedWorkbook.getWorksheet('Feedback');
-      console.log('Feedback sheet contents after sync:');
-      console.log('Column keys:', feedbackSheet.columns.map(col => col.key));
-      feedbackSheet.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) {
-          console.log('Headers:', row.values);
-        } else {
-          try {
-            const name = row.getCell(1).value || '';
-            const review = row.getCell(2).value || '';
-            const timestamp = row.getCell(3).value || '';
-            console.log('Row ' + rowNumber + ':', [name, review, timestamp]);
-          } catch (error) {
-            console.error(`Failed to log Feedback row ${rowNumber}:`, error.message, error.stack);
+            console.error(`Failed to log row ${rowNumber}:`, error.message, error.stack);
           }
         }
       });
@@ -466,23 +351,14 @@ async function downloadFromGoogleDrive(forceSync = false) {
       await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Initialization');
       cachedWorkbook = workbook;
 
-      const customerSheet = workbook.getWorksheet('Customers');
-      console.log('Newly initialized Customers sheet contents:');
-      customerSheet.eachRow((row, rowNumber) => {
+      const sheet = workbook.getWorksheet('Customers');
+      console.log('Newly initialized file contents:');
+      sheet.eachRow((row, rowNumber) => {
         const name = row.getCell(1).value || '';
         const email = row.getCell(2).value || '';
         const phone = row.getCell(3).value || '';
         const dob = row.getCell(4).value || '';
-        console.log(`DOWNLOAD: Customers Row ${rowNumber}:`, [name, email, phone, dob]);
-      });
-
-      const feedbackSheet = workbook.getWorksheet('Feedback');
-      console.log('Newly initialized Feedback sheet contents:');
-      feedbackSheet.eachRow((row, rowNumber) => {
-        const name = row.getCell(1).value || '';
-        const review = row.getCell(2).value || '';
-        const timestamp = row.getCell(3).value || '';
-        console.log(`DOWNLOAD: Feedback Row ${rowNumber}:`, [name, review, timestamp]);
+        console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone, dob]);
       });
     }
 
@@ -497,23 +373,14 @@ async function downloadFromGoogleDrive(forceSync = false) {
     await logFileStats(LOCAL_EXCEL_FILE, 'DOWNLOAD: After Error Recovery');
     cachedWorkbook = workbook;
 
-    const customerSheet = workbook.getWorksheet('Customers');
-    console.log('Customers sheet contents after error recovery:');
-    customerSheet.eachRow((row, rowNumber) => {
+    const sheet = workbook.getWorksheet('Customers');
+    console.log('File contents after error recovery:');
+    sheet.eachRow((row, rowNumber) => {
       const name = row.getCell(1).value || '';
       const email = row.getCell(2).value || '';
       const phone = row.getCell(3).value || '';
       const dob = row.getCell(4).value || '';
-      console.log(`DOWNLOAD: Customers Row ${rowNumber}:`, [name, email, phone, dob]);
-    });
-
-    const feedbackSheet = workbook.getWorksheet('Feedback');
-    console.log('Feedback sheet contents after error recovery:');
-    feedbackSheet.eachRow((row, rowNumber) => {
-      const name = row.getCell(1).value || '';
-      const review = row.getCell(2).value || '';
-      const timestamp = row.getCell(3).value || '';
-      console.log(`DOWNLOAD: Feedback Row ${rowNumber}:`, [name, review, timestamp]);
+      console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone, dob]);
     });
 
     // Reset localChangesPending on error recovery
@@ -673,22 +540,14 @@ async function initializeFromGoogleDrive() {
 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-  const customerSheet = workbook.getWorksheet('Customers');
-  console.log('INIT: Customers sheet contents after initialization:');
-  customerSheet.eachRow((row, rowNumber) => {
+  const sheet = workbook.getWorksheet('Customers');
+  console.log('INIT: Excel file contents after initialization:');
+  sheet.eachRow((row, rowNumber) => {
     const name = row.getCell(1).value || '';
     const email = row.getCell(2).value || '';
     const phone = row.getCell(3).value || '';
     const dob = row.getCell(4).value || '';
-    console.log(`INIT: Customers Row ${rowNumber}:`, [name, email, phone, dob]);
-  });
-  const feedbackSheet = workbook.getWorksheet('Feedback');
-  console.log('INIT: Feedback sheet contents after initialization:');
-  feedbackSheet.eachRow((row, rowNumber) => {
-    const name = row.getCell(1).value || '';
-    const review = row.getCell(2).value || '';
-    const timestamp = row.getCell(3).value || '';
-    console.log(`INIT: Feedback Row ${rowNumber}:`, [name, review, timestamp]);
+    console.log(`INIT: Row ${rowNumber}:`, [name, email, phone, dob]);
   });
   cachedWorkbook = workbook;
 }
@@ -703,162 +562,6 @@ function getDuplicateErrorMessage(emailExists, phoneExists) {
     return 'Phone number already exists';
   }
 }
-
-// Handle feedback submission
-app.post('/submit-feedback', async (req, res) => {
-  const feedbackStartTime = Date.now();
-  console.log(`FEEDBACK: Received submission at ${new Date(feedbackStartTime).toISOString()}:`, req.body);
-
-  const { name, review } = req.body;
-
-  if (!name || !review) {
-    console.log('FEEDBACK: Validation failed: Missing required fields');
-    return res.status(400).json({ success: false, error: 'Missing required fields' });
-  }
-
-  const trimmedReview = review.trim();
-  if (trimmedReview.length === 0) {
-    console.log('FEEDBACK: Validation failed: Review cannot be empty');
-    return res.status(400).json({ success: false, error: 'Review cannot be empty' });
-  }
-
-  if (trimmedReview.length > 500) {
-    console.log('FEEDBACK: Validation failed: Review exceeds 500 characters');
-    return res.status(400).json({ success: false, error: 'Review cannot exceed 500 characters' });
-  }
-
-  try {
-    let feedbackResult;
-    fileLockPromise = fileLockPromise.then(async () => {
-      try {
-        let workbook;
-        let feedbackSheet;
-
-        console.log('FEEDBACK: Loading local Excel file...');
-        try {
-          workbook = await loadLocalExcel();
-          feedbackSheet = workbook.getWorksheet('Feedback');
-          console.log('FEEDBACK: Successfully loaded local Excel file:', LOCAL_EXCEL_FILE);
-
-          console.log('FEEDBACK: Feedback sheet contents before submission:');
-          feedbackSheet.eachRow((row, rowNumber) => {
-            const name = row.getCell(1).value || '';
-            const review = row.getCell(2).value || '';
-            const timestamp = row.getCell(3).value || '';
-            console.log(`FEEDBACK: Row ${rowNumber}:`, [name, review, timestamp]);
-          });
-        } catch (loadError) {
-          console.error('FEEDBACK: Failed to load Excel file, forcing recreation:', loadError.message, loadError.stack);
-          workbook = await initializeExcel();
-          feedbackSheet = workbook.getWorksheet('Feedback');
-          let fileCreated = false;
-          let writeAttempts = 0;
-          const maxWriteAttempts = 3;
-
-          while (writeAttempts < maxWriteAttempts && !fileCreated) {
-            try {
-              await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE, true);
-              await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-              await logFileStats(LOCAL_EXCEL_FILE, 'FEEDBACK: After Forced Recreation');
-              console.log('FEEDBACK: Forced recreation of Excel file:', LOCAL_EXCEL_FILE);
-
-              const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
-              if (!fileExists) {
-                throw new Error('Failed to create Excel file during forced recreation');
-              }
-              console.log('FEEDBACK: Verified: Excel file exists after forced recreation');
-              fileCreated = true;
-            } catch (writeError) {
-              writeAttempts++;
-              console.error(`FEEDBACK: Failed to recreate Excel file (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
-              if (writeAttempts === maxWriteAttempts) {
-                throw new Error(`FEEDBACK: Failed to recreate Excel file after ${maxWriteAttempts} attempts: ${writeError.message}`);
-              }
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          }
-          cachedWorkbook = workbook;
-        }
-
-        console.log('FEEDBACK: Adding new feedback row...');
-        const timestamp = new Date().toISOString();
-        const newRow = feedbackSheet.addRow([name, trimmedReview, timestamp]);
-        newRow.commit();
-        console.log('FEEDBACK: Added feedback row:', [name, trimmedReview, timestamp]);
-
-        console.log('FEEDBACK: Checking disk space and permissions before saving...');
-        await checkDiskSpaceAndPermissions(LOCAL_EXCEL_FILE);
-        let writeAttempts = 0;
-        const maxWriteAttempts = 3;
-        let fileWritten = false;
-        console.log('FEEDBACK: Attempting to save Excel file...');
-        await logFileStats(LOCAL_EXCEL_FILE, 'FEEDBACK: Before Save');
-        while (writeAttempts < maxWriteAttempts && !fileWritten) {
-          try {
-            await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-            console.log('FEEDBACK: Data successfully saved to local Excel file:', LOCAL_EXCEL_FILE);
-            fileWritten = true;
-          } catch (writeError) {
-            writeAttempts++;
-            console.error(`FEEDBACK: Failed to write to Excel file (attempt ${writeAttempts}/${maxWriteAttempts}):`, writeError.message, writeError.stack);
-            if (writeAttempts === maxWriteAttempts) {
-              throw new Error('FEEDBACK: Failed to write to Excel file after maximum attempts');
-            }
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-        await logFileStats(LOCAL_EXCEL_FILE, 'FEEDBACK: After Save');
-
-        cachedWorkbook = workbook;
-
-        localChangesPending = true;
-        console.log('FEEDBACK: Local changes marked for immediate sync to Google Drive.');
-
-        // Perform immediate sync to Google Drive
-        try {
-          console.log('FEEDBACK: Starting immediate sync to Google Drive...');
-          await uploadToGoogleDrive();
-          console.log('FEEDBACK: Immediate sync to Google Drive completed successfully.');
-        } catch (syncError) {
-          console.error('FEEDBACK: Immediate sync to Google Drive failed:', syncError.message, syncError.stack);
-          console.error('FEEDBACK: Immediate sync error details:', JSON.stringify(syncError, null, 2));
-          console.log('FEEDBACK: Changes will be synced during the next periodic sync.');
-        }
-
-        feedbackResult = { status: 200, body: { success: true, message: 'Feedback submitted successfully' } };
-      } catch (error) {
-        throw error;
-      }
-    });
-
-    await fileLockPromise;
-
-    if (feedbackResult) {
-      console.log('FEEDBACK: Sending response:', feedbackResult.body);
-      const feedbackEndTime = Date.now();
-      console.log(`FEEDBACK: Submission completed at ${new Date(feedbackEndTime).toISOString()}, took ${(feedbackEndTime - feedbackStartTime) / 1000} seconds`);
-      res.status(feedbackResult.status).json(feedbackResult.body);
-    } else {
-      throw new Error('FEEDBACK: Feedback result not set');
-    }
-  } catch (error) {
-    console.error('FEEDBACK: Failed to save feedback to local Excel:', error.message, error.stack);
-    if (error.message.includes('Insufficient disk space')) {
-      res.status(500).json({ success: false, error: 'Server disk space is full. Please contact support.' });
-    } else if (error.message.includes('Permission denied')) {
-      res.status(500).json({ success: false, error: 'File permission error. Please contact support.' });
-    } else if (error.message.includes('Corrupt')) {
-      console.log('FEEDBACK: Excel file appears to be corrupted, already recreated in main flow.');
-      res.status(503).json({ success: false, error: 'File was corrupted, please try again.' });
-    } else if (error.message.includes('Failed to initialize new Excel file')) {
-      res.status(500).json({ success: false, error: 'Failed to create Excel file. Please contact support.' });
-    } else if (error.message.includes('Failed to recreate Excel file')) {
-      res.status(500).json({ success: false, error: 'Failed to recreate Excel file. Please contact support.' });
-    } else {
-      res.status(500).json({ success: false, error: 'Unable to save your feedback. Please try again later.' });
-    }
-  }
-});
 
 // Handle form submission
 app.post('/submit', async (req, res) => {
@@ -907,9 +610,6 @@ app.post('/submit', async (req, res) => {
       try {
         let workbook;
         let sheet;
-
-        console.log('SUBMIT: Syncing with Google Drive before duplicate check...');
-        await downloadFromGoogleDrive(); // Ensure latest data before duplicate check
 
         console.log('SUBMIT: Loading local Excel file...');
         try {
@@ -1286,22 +986,14 @@ app.get('/download', async (req, res) => {
         console.log('DOWNLOAD: Reading file contents before sending...');
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-        const customerSheet = workbook.getWorksheet('Customers');
-        console.log('DOWNLOAD: Customers sheet contents before download:');
-        customerSheet.eachRow((row, rowNumber) => {
+        const sheet = workbook.getWorksheet('Customers');
+        console.log('DOWNLOAD: File contents before download:');
+        sheet.eachRow((row, rowNumber) => {
           const name = row.getCell(1).value || '';
           const email = row.getCell(2).value || '';
           const phone = row.getCell(3).value || '';
           const dob = row.getCell(4).value || '';
-          console.log(`DOWNLOAD: Customers Row ${rowNumber}:`, [name, email, phone, dob]);
-        });
-        const feedbackSheet = workbook.getWorksheet('Feedback');
-        console.log('DOWNLOAD: Feedback sheet contents before download:');
-        feedbackSheet.eachRow((row, rowNumber) => {
-          const name = row.getCell(1).value || '';
-          const review = row.getCell(2).value || '';
-          const timestamp = row.getCell(3).value || '';
-          console.log(`DOWNLOAD: Feedback Row ${rowNumber}:`, [name, review, timestamp]);
+          console.log(`DOWNLOAD: Row ${rowNumber}:`, [name, email, phone, dob]);
         });
 
         console.log('DOWNLOAD: Sending Excel file to client...');
