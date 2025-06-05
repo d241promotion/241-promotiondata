@@ -1,178 +1,110 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Congratulations, Guest! 🎉</title>
+  <title>Thank You!</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Poppins', Arial, sans-serif;
+      background: url('new images/aigen.jpg') center/cover no-repeat fixed;
+      background-color: #FFF9E5;
       text-align: center;
-      padding: 20px;
+      padding: 0;
       margin: 0;
-      background-color: #f9f9f9;
+      position: relative;
+      overflow-x: hidden;
+      color: #333;
+      line-height: 1.6;
+    }
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+    }
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      background: transparent;
+      padding: 30px;
+      position: relative;
+      z-index: 1;
     }
     h1 {
-      color: #e74c3c;
+      color: #FFFFFF;
+      font-weight: bold;
+      font-size: 2.8em;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    h2 {
+      color: #FFD60A;
       font-size: 2em;
-      margin-bottom: 10px;
+      margin: 20px 0;
     }
     p {
-      font-size: 18px;
-      color: #333;
+      color: #FFFFFF;
+      font-size: 1.2em;
       margin: 10px 0;
     }
     .social-links {
-      margin: 20px 0;
+      margin-top: 30px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
     }
     .social-links a {
-      margin: 0 15px;
-      text-decoration: none;
-      color: #3498db;
-      font-size: 16px;
-      font-weight: bold;
+      display: inline-block;
     }
-    .social-links a:hover {
-      color: #2980b9;
-      text-decoration: underline;
-    }
-    .feedback-form {
-      margin-top: 30px;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .feedback-form h2 {
-      color: #333;
-      font-size: 1.5em;
-      margin-bottom: 15px;
-    }
-    .feedback-form textarea {
-      width: 100%;
-      max-width: 500px;
-      height: 120px;
-      padding: 10px;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      resize: vertical;
-      box-sizing: border-box;
-    }
-    .feedback-form .char-count {
-      font-size: 14px;
-      color: #666;
-      text-align: right;
-      margin-top: 5px;
-    }
-    .feedback-form button {
-      margin-top: 15px;
-      padding: 10px 25px;
-      background-color: #3498db;
+    .social-links .btn {
+      background: #E63946;
       color: white;
+      padding: 15px 30px;
       border: none;
-      border-radius: 5px;
-      font-size: 16px;
+      border-radius: 8px;
       cursor: pointer;
+      font-size: 1.3em;
+      font-weight: bold;
+      text-decoration: none;
+      transition: background 0.3s;
     }
-    .feedback-form button:hover {
-      background-color: #2980b9;
-    }
-    .feedback-form button:disabled {
-      background-color: #95a5a6;
-      cursor: not-allowed;
-    }
-    .error {
-      color: #e74c3c;
-      font-size: 14px;
-      margin-top: 10px;
-      display: none;
+    .social-links .btn:hover {
+      background: #F4A261;
     }
     @media (max-width: 600px) {
-      h1 { font-size: 1.5em; }
-      p, .social-links a { font-size: 14px; }
-      .feedback-form textarea { max-width: 100%; }
+      h1 { font-size: 2em; }
+      h2 { font-size: 1.5em; }
+      p { font-size: 1em; }
+      .social-links .btn { font-size: 1em; padding: 10px 20px; }
     }
   </style>
 </head>
 <body>
-  <h1>Congratulations, <span id="customerName">Guest</span>! 🎉</h1>
-  <p>You’ve Won: Nothing!</p>
-  <p>Show this screen to 241 to claim your prize</p>
-  <div class="social-links">
-    <a href="https://www.instagram.com/241pizzas/" target="_blank">Follow us on Instagram</a>
-    <a href="https://241pizzas.com" target="_blank">Visit 241 Page</a>
-  </div>
-  <div class="feedback-form">
-    <h2>Share Your Feedback</h2>
-    <form id="feedbackForm">
-      <textarea id="review" name="review" placeholder="Write your review here (max 500 characters)" maxlength="500" required aria-describedby="feedbackError charCount"></textarea>
-      <p id="charCount" class="char-count">0/500 characters</p>
-      <button type="submit" id="submitButton">Submit Feedback</button>
-      <p id="feedbackError" class="error"></p>
-    </form>
+  <div class="container">
+    <h1>Congratulations, <span id="user-name">Guest</span>! 🎉</h1>
+    <h2>You’ve Won: <span id="prize">Nothing</span>!</h2>
+    <p>Show this screen to 241 to claim your prize</p>
+    <div class="social-links">
+      <!-- Replace the URL below with the actual Instagram link for 24/1 Pizza -->
+      <a href="https://www.instagram.com/241pizzawinston/" target="_blank" class="btn">Follow us on Instagram</a>
+      <!-- Replace the URL below with the actual Google Review link for 24/1 Pizza -->
+      <a href="https://g.page/r/GOOGLE_REVIEW_ID/review" target="_blank" class="btn">Leave a Google Review</a>
+      <!-- Replace the URL below with the actual 24/1 Pizza website URL -->
+      <a href="https://241pizza.com" target="_blank" class="btn">Visit 241 Page</a>
+    </div>
   </div>
 
   <script>
-    // Retrieve customer name
-    const urlParams = new URLSearchParams(window.location.search);
-    const customerName = urlParams.get('name') || localStorage.getItem('customerName') || 'Guest';
-    document.getElementById('customerName').textContent = customerName;
-
-    const reviewTextarea = document.getElementById('review');
-    const charCount = document.getElementById('charCount');
-    const submitButton = document.getElementById('submitButton');
-    const feedbackError = document.getElementById('feedbackError');
-
-    // Update character count
-    reviewTextarea.addEventListener('input', () => {
-      const length = reviewTextarea.value.length;
-      charCount.textContent = `${length}/500 characters`;
-      if (length > 500) {
-        charCount.style.color = '#e74c3c';
-      } else {
-        charCount.style.color = '#666';
-      }
-    });
-
-    // Handle form submission
-    document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const review = reviewTextarea.value.trim();
-      feedbackError.style.display = 'none';
-      submitButton.disabled = true;
-
-      if (!review) {
-        feedbackError.textContent = 'Please enter a review.';
-        feedbackError.style.display = 'block';
-        submitButton.disabled = false;
-        return;
-      }
-
-      try {
-        const response = await fetch('/submit-feedback', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: customerName, review })
-        });
-        const result = await response.json();
-
-        if (result.success) {
-          alert('Thank you for your feedback!');
-          feedbackForm.reset();
-          charCount.textContent = '0/500 characters';
-          charCount.style.color = '#666';
-        } else {
-          feedbackError.textContent = result.error || 'Failed to submit feedback. Please try again.';
-          feedbackError.style.display = 'block';
-        }
-      } catch (error) {
-        console.error('Feedback submission error:', error);
-        feedbackError.textContent = 'An error occurred. Please try again later.';
-        feedbackError.style.display = 'block';
-      } finally {
-        submitButton.disabled = false;
-      }
+    document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const name = params.get('name') || 'Guest';
+      const prize = params.get('prize') || 'Nothing';
+      document.getElementById('user-name').textContent = name;
+      document.getElementById('prize').textContent = prize;
     });
   </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93588ee3999b32f2',t:'MTc0NTUyODcyMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'94ac22bd0b89aeb6',t:'MTc0OTA4OTQ0OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
